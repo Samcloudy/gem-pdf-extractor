@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GeM PDF → Excel Extractor v25</title>
+<title>GeM PDF → Excel Extractor v26</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -56,9 +56,9 @@
 </head>
 <body>
 
-<div class="banner">✅ v25 LOADED — GSTIN assignment now uses section classification (buyer/paying/seller/consignee)</div>
+<div class="banner">✅ v26 LOADED — New header order: Buyer GSTIN first, addresses grouped, product fields at end</div>
 
-<h1>GeM PDF → Excel Extractor <span class="tag">v25</span></h1>
+<h1>GeM PDF → Excel Extractor <span class="tag">v26</span></h1>
 <div class="sub">Extract GeM contract PDFs → append to master Excel · mobile-ready · learns seller layouts · skips duplicates</div>
 
 <div class="err" id="errBox"></div>
@@ -125,13 +125,26 @@ window.addEventListener('unhandledrejection', function(e){
   if(box){ box.style.display='block'; box.textContent = 'Async Error: ' + (e.reason && e.reason.message ? e.reason.message : e.reason); }
 });
 
+/* =====================================================================
+   ★★★ NEW HEADER ORDER (v26)
+   ===================================================================== */
 var HEADERS = [
-  "Generated Date","Buyer Designation","Buyer Contact No","Buyer GSTIN","Buyer Address",
-  "Seller Company Name","Seller Contact No","Seller GSTIN","Seller Address",
-  "Product Name","Ordered Quantity","Unit Price",
-  "Price (Inclusive of All Duties & Taxes) – INR","One actual sample PDF"
+  "Generated Date",
+  "Buyer GSTIN",
+  "Buyer Contact No",
+  "Buyer Designation",
+  "Buyer Address",
+  "Seller Company Name",
+  "Seller Address",
+  "Seller Contact No",
+  "Seller GSTIN",
+  "Product Name",
+  "Ordered Quantity",
+  "Unit Price",
+  "Price (Inclusive of All Duties & Taxes) – INR",
+  "One actual sample PDF"
 ];
-var LS_LEARNED = "gem_learned_patterns_v17";
+var LS_LEARNED = "gem_learned_patterns_v18";
 
 var logEl = document.getElementById('log');
 var rawTextEl = document.getElementById('rawText');
@@ -366,14 +379,6 @@ function findAllGstinValues(text){
   return out;
 }
 
-/* =====================================================================
-   ★★★ SCAN — classifies each GSTIN label by section:
-       buyer  → inside Buyer Details
-       paying → inside Paying Authority
-       seller → inside Seller Details
-       consignee → inside Consignee Detail
-       unknown → elsewhere
-   ===================================================================== */
 function scanAllGstinLabels(text){
   var results = [];
   var re = /GSTIN\s*:?/gi;
@@ -389,15 +394,12 @@ function scanAllGstinLabels(text){
       var g = candidates[ci].match(GSTIN_PATTERN);
       if(g){ value = g[0].toUpperCase(); break; }
     }
-    // Look back 400 chars to find the most recent section header
     var before = text.slice(Math.max(0, m.index - 400), m.index).toLowerCase();
     var section = "unknown";
-    // Find the LAST occurrence of each section header in the before-text
     var idxBuyer = before.lastIndexOf("buyer details");
     var idxSeller = before.lastIndexOf("seller details");
     var idxPaying = before.lastIndexOf("paying authority");
     var idxConsignee = before.lastIndexOf("consignee detail");
-    // Highest index wins = most recent section
     var maxIdx = Math.max(idxBuyer, idxSeller, idxPaying, idxConsignee);
     if(maxIdx === idxSeller) section = "seller";
     else if(maxIdx === idxConsignee) section = "consignee";
@@ -408,45 +410,26 @@ function scanAllGstinLabels(text){
   return results;
 }
 
-/* =====================================================================
-   ★★★ GSTIN RESOLUTION (v25 — section-aware)
-   
-   Seller GSTIN:
-     1. Use the label whose section === "seller"
-     2. Fallback: any label with section not "buyer"/"paying" that
-        appears after the "Seller Details" anchor (best-effort)
-     3. Fallback: last valid label
-   
-   Buyer GSTIN:
-     1. If Buyer Details had a GSTIN → use it
-     2. Else if Paying Authority had a GSTIN → use it
-     3. Else if Consignee had a GSTIN → use it
-     4. Else → first valid label that is NOT the seller's
-   ===================================================================== */
 function resolveGstins(labels, sellerBlock){
   var sellerGstin = "";
   var buyerGstin = "";
 
-  // Seller: prefer section === "seller"
   for(var i=0;i<labels.length;i++){
     if(labels[i].section === "seller" && !isBlankish(labels[i].value)){
       sellerGstin = labels[i].value;
       break;
     }
   }
-  // Fallback: GSTIN inside sellerBlock (regex match)
   if(!sellerGstin && sellerBlock){
     var sm = sellerBlock.match(GSTIN_PATTERN);
     if(sm) sellerGstin = sm[0].toUpperCase();
   }
-  // Fallback: last valid label
   if(!sellerGstin){
     for(var i=labels.length-1;i>=0;i--){
       if(!isBlankish(labels[i].value)){ sellerGstin = labels[i].value; break; }
     }
   }
 
-  // Buyer: (1) buyer section, (2) paying section, (3) consignee section, (4) first non-seller
   for(var i=0;i<labels.length;i++){
     if(labels[i].section === "buyer" && !isBlankish(labels[i].value)){ buyerGstin = labels[i].value; break; }
   }
@@ -472,9 +455,7 @@ function resolveGstins(labels, sellerBlock){
   return { sellerGstin: sellerGstin, buyerGstin: buyerGstin };
 }
 
-/* =====================================================================
-   PRODUCT NAME — v24 regex (unchanged)
-   ===================================================================== */
+/* ========== PRODUCT NAME ========== */
 var PRODUCT_LABEL_REGEX = /(?:उ\S*पाद\s*का\s*नाम\s*\|?\s*)?Product\s*Name\s*:\s*([\s\S]*?)(?=\s*(?:[|#!]*\s*(?:Brand\s*:|Brand\s*Type|Catalogue\s*Status|Selling\s*As|Category\s*Name|Model\s*:|HSN\s*Code|Country\s*Of\s*Origin)|[\u0900-\u097F]*\s*\|?\s*(?:बाड़|ब्रांड|कैटलॉग|मॉडल|श्रेणी|देश)\s*[:|]|Item\s*Description|Ordered\s*Quantity|Unit\s*Price|Total\s*Order))/i;
 
 function extractProductName(text){
@@ -521,7 +502,7 @@ function extractFields(text, filename){
     if(sIdx >= 0 && eIdx > sIdx) sellerBlock = text.slice(sIdx, eIdx);
   }
 
-  /* GSTIN — v25 section-aware resolution */
+  /* GSTIN */
   var labels = scanAllGstinLabels(text);
   var resolved = resolveGstins(labels, sellerBlock);
   set("Seller GSTIN", resolved.sellerGstin);
@@ -595,7 +576,7 @@ function extractFields(text, filename){
     set("Seller Address", vsa);
   }
 
-  /* 10) Product Name — v24 */
+  /* 10) Product Name */
   set("Product Name", extractProductName(text));
 
   /* 11-13) Table row */
