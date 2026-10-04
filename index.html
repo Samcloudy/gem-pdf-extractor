@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GeM PDF → Excel Extractor v28</title>
+<title>GeM PDF → Excel Extractor v31</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -56,9 +56,9 @@
 </head>
 <body>
 
-<div class="banner">✅ v28 LOADED — Unit Price regex now accepts commas (e.g. 1,190)</div>
+<div class="banner">✅ v31 LOADED — "Address :" prefix stripped from extracted addresses</div>
 
-<h1>GeM PDF → Excel Extractor <span class="tag">v28</span></h1>
+<h1>GeM PDF → Excel Extractor <span class="tag">v31</span></h1>
 <div class="sub">Extract GeM contract PDFs → append to master Excel · mobile-ready · learns seller layouts · skips duplicates</div>
 
 <div class="err" id="errBox"></div>
@@ -141,7 +141,7 @@ var HEADERS = [
   "Price (Inclusive of All Duties & Taxes) – INR",
   "One actual sample PDF"
 ];
-var LS_LEARNED = "gem_learned_patterns_v20";
+var LS_LEARNED = "gem_learned_patterns_v23";
 
 var logEl = document.getElementById('log');
 var rawTextEl = document.getElementById('rawText');
@@ -354,37 +354,100 @@ function readInlineValue(block, labelRegex, options){
 }
 
 /* =====================================================================
-   BUYER ADDRESS — v27+ robust extractor
+   ★★★ BUYER ADDRESS — v31 (strips "Address :" prefix)
    ===================================================================== */
-function extractBuyerAddress(text){
+function extractBuyerAddress(text, resolvedBuyerGstin){
   var buyerBlock = findSection(text, /Buyer\s*Details/i,
     [/Financial\s*Approval|Paying\s*Authority\s*Details|Seller\s*Details/i]);
   if(!buyerBlock) buyerBlock = text.split(/Financial\s*Approval|Paying\s*Authority\s*Details/i)[0] || text;
 
+  // -------- Try 1: Buyer Details "Address :" label --------
   var labelRe = /(?:पता\s*\|?\s*|पद\s*\|?\s*)?Address\s*:?\s*/i;
   var m = buyerBlock.match(labelRe);
-  if(!m) return "";
-
-  var afterIdx = m.index + m[0].length;
-  var tail = buyerBlock.slice(afterIdx);
-  var lines = tail.split("\n");
-
-  var parts = [];
-  for(var i=0; i<lines.length && parts.length < 5; i++){
-    var l = lines[i].trim();
-    if(!l){ if(parts.length) break; else continue; }
-    if(LABEL_STOP.test(l)) break;
-    if(isJunkLine(l)) continue;
-    if(!isValidAddressLine(l)) continue;
-    parts.push(l);
+  if(m){
+    var afterIdx = m.index + m[0].length;
+    var tail = buyerBlock.slice(afterIdx);
+    var lines = tail.split("\n");
+    var parts = [];
+    for(var i=0; i<lines.length && parts.length < 6; i++){
+      var l = lines[i].trim();
+      if(!l){ if(parts.length) break; else continue; }
+      if(LABEL_STOP.test(l)) break;
+      if(isJunkLine(l)){ if(parts.length) break; else continue; }
+      if(!isValidAddressLine(l)){ if(parts.length) break; else continue; }
+      parts.push(l);
+      if(/\bIndia\s*$/.test(l)) break;
+    }
+    var addr1 = trimAddressJunk(parts.join(", "));
+    if(addr1 && addr1.length > 10) return addr1;
   }
 
-  return stripHindi(parts.join(", "))
-    .replace(/\s+/g," ")
-    .replace(/,\s*,/g,",")
-    .replace(/\s+,/g,",")
-    .replace(/,\s*$/, "")
+  // -------- Try 2: text right after the Buyer GSTIN value --------
+  if(resolvedBuyerGstin){
+    var gstinRe = new RegExp(
+      "GSTIN\\s*:?\\s*" + resolvedBuyerGstin + "\\s+([\\s\\S]*?)(?=\\n\\s*(?:[A-Z][a-z]+\\s+\\||वित्तीय|Financial|भुगतान|Paying|विक्रेता|Seller|वितरण|Delivery|उत्पाद|Product|\\*|\\\"|'))",
+      "i"
+    );
+    var gm = buyerBlock.match(gstinRe) || text.match(gstinRe);
+    if(gm){
+      var addr2 = trimAddressJunk(gm[1]);
+      if(addr2 && /\d{6}/.test(addr2) && addr2.length > 20) return addr2;
+    }
+  }
+
+  // -------- Try 3: Consignee Detail "Address :" --------
+  var consBlock = findSection(text, /Consignee\s*Detail/i,
+    [/Product\s*Specification|Terms\s*and\s*Conditions|ePBG|नियम\s*और/i]);
+  if(consBlock){
+    var cm = consBlock.match(/Address\s*:\s*([\s\S]*?)(?=\n\s*(?:[A-Z][a-z]+\s*\||GSTIN|Email|Contact|Product|Delivery|Item|Quantity|Note|$))/i);
+    if(cm){
+      var addr3 = trimAddressJunk(cm[1]);
+      if(addr3 && addr3.length > 15) return addr3;
+    }
+  }
+
+  // -------- Try 4: Paying Authority "Address :" --------
+  var payBlock = findSection(text, /Paying\s*Authority\s*Details/i,
+    [/Seller\s*Details|GST\s*\/\s*Tax|Product\s*Details|Delivery\s*Instructions/i]);
+  if(payBlock){
+    var pm = payBlock.match(/Address\s*:\s*([\s\S]*?)(?=\n\s*(?:GSTIN|Email|Contact|Role|Payment|Seller|Product|$))/i);
+    if(pm){
+      var addr4 = trimAddressJunk(pm[1]);
+      if(addr4 && addr4.length > 15) return addr4;
+    }
+  }
+
+  return "";
+}
+
+/* ★★★ trimAddressJunk — now strips "Address :" prefix too */
+function trimAddressJunk(s){
+  if(!s) return "";
+  s = stripHindi(s).replace(/\s+/g, " ").trim();
+
+  /* ★ Strip leading label prefix ("Address :", "पता :", "पद :", etc.) */
+  s = s.replace(/^(?:Address|पता|पद|पत)\s*[:|]\s*/i, "").trim();
+  /* Also strip any leftover "|" or ":" at start */
+  s = s.replace(/^[|\s:]+/, "").trim();
+
+  /* Cut everything after "India" */
+  var idx = s.search(/\bIndia\b/i);
+  if(idx >= 0){
+    s = s.slice(0, idx + 5);
+  }
+
+  /* Remove trailing punctuation, quotes, stray single letters */
+  s = s
+    .replace(/[,\s"'`~!@#$%^&*()_+=\[\]{}|\\/<>?;:]+$/g, "")
+    .replace(/\s+[a-z]\s*$/i, "")
+    .replace(/\s+/g, " ")
     .trim();
+
+  /* Final: keep only up to "India" if present */
+  var m = s.match(/^([\s\S]*?India)\b[\s\S]*$/i);
+  if(m) s = m[1];
+
+  return s;
 }
 
 /* ========== GSTIN ========== */
@@ -499,18 +562,9 @@ function extractProductName(text){
     .trim();
 }
 
-/* =====================================================================
-   ★★★ TABLE ROW — v28 COMMA-AWARE (unit price can have commas too)
-   
-   Handles:
-     "21 packet 645 NA 13,545"
-     "1,500,000packet2.55NA3,825,000"
-     "3packet1,190NA3,570"          ← unit price has comma!
-   ===================================================================== */
+/* ========== TABLE ROW — comma-aware ========== */
 function extractTableRow(text){
   var result = { qty: "", unit: "", total: "" };
-
-  // Comma-aware patterns — unit price can also contain commas (e.g. 1,190)
   var reA = /([\d,]+)\s*packet\s*([\d,.]+)\s*NA\s*([\d,]+)/i;
   var reB = /([\d,]+)packet([\d,.]+)NA([\d,]+)/i;
 
@@ -522,8 +576,6 @@ function extractTableRow(text){
     result.total = m[3];
     return result;
   }
-
-  // Fallback: search line by line, from the bottom
   var lines = text.split("\n").map(function(l){ return l.trim(); }).filter(Boolean);
   for(var i=lines.length-1; i>=0; i--){
     var l = lines[i];
@@ -535,7 +587,6 @@ function extractTableRow(text){
       return result;
     }
   }
-  // Final fallback: bare qty before "packet"
   for(var i=lines.length-1; i>=0; i--){
     var l = lines[i];
     var pm = l.match(/([\d,]+)\s*packet/i);
@@ -554,12 +605,10 @@ function extractFields(text, filename){
   var found = {};
   function set(k,v){ found[k] = ((v||"") + "").trim(); }
 
-  /* 1) Generated Date */
   var m = text.match(/Generated\s*Date\s*:?\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4})/i)
        || text.match(/([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4})/);
   set("Generated Date", m ? m[1] : "");
 
-  /* SECTION BLOCKS */
   var buyerBlock = findSection(text, /Buyer\s*Details/i,
     [/Financial\s*Approval|Paying\s*Authority\s*Details|Seller\s*Details/i]);
   if(!buyerBlock) buyerBlock = text.split(/Financial\s*Approval|Paying\s*Authority\s*Details/i)[0] || text;
@@ -575,29 +624,13 @@ function extractFields(text, filename){
     if(sIdx >= 0 && eIdx > sIdx) sellerBlock = text.slice(sIdx, eIdx);
   }
 
-  /* GSTIN */
   var labels = scanAllGstinLabels(text);
   var resolved = resolveGstins(labels);
   set("Seller GSTIN", resolved.sellerGstin);
   set("Buyer GSTIN", resolved.buyerGstin);
 
-  /* Debug */
-  debugBlocksEl.textContent =
-    "===== ALL \"GSTIN\" LABEL SCANS =====\n" +
-    (labels.length ? labels.map(function(l,i){
-      return (i+1) + ". @ " + l.index + "  section=[" + l.section + "]  value=[" + (l.value || "(blank)") + "]";
-    }).join("\n") : "(no GSTIN labels found)") +
-    "\n\n===== GSTIN RESULT =====\n" +
-    "Seller GSTIN = '" + resolved.sellerGstin + "'\n" +
-    "Buyer GSTIN  = '" + resolved.buyerGstin + "'\n\n" +
-    "===== TABLE ROW =====\n" +
-    JSON.stringify(extractTableRow(text)) + "\n\n" +
-    "===== BUYER BLOCK (first 400) =====\n" + buyerBlock.slice(0, 400);
-
-  /* 2) Buyer Designation */
   set("Buyer Designation", readInlineValue(buyerBlock, /Designation\s*:\s*/i));
 
-  /* 3) Buyer Contact No */
   {
     var vc = readInlineValue(buyerBlock, /Contact\s*No\.?\s*:\s*/i, { stripTrailingDash: true });
     if(!vc){
@@ -607,10 +640,9 @@ function extractFields(text, filename){
     set("Buyer Contact No", vc);
   }
 
-  /* 4) Buyer Address — robust extractor */
-  set("Buyer Address", extractBuyerAddress(text));
+  var buyerAddr = extractBuyerAddress(text, resolved.buyerGstin);
+  set("Buyer Address", buyerAddr);
 
-  /* 5) Seller Company Name */
   {
     var vcn = "";
     var scm = sellerBlock.match(/Company\s*Name\s*:?\s*([^\n]+)/i);
@@ -623,14 +655,13 @@ function extractFields(text, filename){
     set("Seller Company Name", vcn);
   }
 
-  /* 6) Seller Address */
   {
     var vsa = readLabelValue(sellerBlock, /Address\s*:\s*/i,
       { maxLines: 5, joinWith: ", ", validator: isValidAddressLine });
+    vsa = trimAddressJunk(vsa);
     set("Seller Address", vsa);
   }
 
-  /* 7) Seller Contact No */
   {
     var vsc = readInlineValue(sellerBlock, /Contact\s*No\.?\s*:\s*/i, { stripTrailingDash: true });
     if(!vsc){
@@ -644,17 +675,25 @@ function extractFields(text, filename){
     set("Seller Contact No", vsc);
   }
 
-  /* 8) Product Name */
   set("Product Name", extractProductName(text));
 
-  /* 9-11) Table row — comma-aware */
   var row = extractTableRow(text);
   set("Ordered Quantity", row.qty ? (row.qty + " packet") : "");
   set("Unit Price", row.unit);
   set("Price (Inclusive of All Duties & Taxes) – INR", row.total);
 
-  /* 12) Sample PDF */
   set("One actual sample PDF", filename);
+
+  debugBlocksEl.textContent =
+    "===== GSTIN LABELS =====\n" +
+    labels.map(function(l,i){
+      return (i+1) + ". [" + l.section + "] value=[" + (l.value || "(blank)") + "]";
+    }).join("\n") +
+    "\n\n===== RESOLVED =====\n" +
+    "Buyer GSTIN:  '" + resolved.buyerGstin + "'\n" +
+    "Seller GSTIN: '" + resolved.sellerGstin + "'\n\n" +
+    "===== BUYER ADDRESS RESULT =====\n" + (buyerAddr || "(EMPTY)") +
+    "\n\n===== TABLE ROW =====\n" + JSON.stringify(row);
 
   applyLearned(found);
   var finalRow = HEADERS.map(function(h){ return found[h] || ""; });
