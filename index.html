@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GeM PDF → Excel Extractor v31</title>
+<title>GeM PDF → Excel Extractor v32</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -38,10 +38,68 @@
   .review-card h4 { margin: 0 0 8px 0; font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .grid { display: grid; grid-template-columns: 180px 1fr auto; gap: 4px 8px; font-size: 12px; align-items: center; }
   .grid label { font-weight: 600; color: #333; }
+  .grid label.field-warn { color: #842029; text-decoration: underline wavy #dc3545; text-underline-offset: 3px; }
   .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .footer-note { font-size: 11px; color: #888; margin-top: 12px; text-align: center; }
   .err { background:#f8d7da; color:#842029; padding:8px 12px; border-radius:6px; font-size:13px; margin-bottom:10px; display:none; }
   .banner { background:#cfe2ff; color:#084298; padding:10px 14px; border-radius:6px; font-size:14px; font-weight:bold; margin-bottom:12px; border:2px solid #0b6efd; }
+
+  /* ============ v32 Validation Badge Styles ============ */
+  .validation-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: help;
+    position: relative;
+  }
+  .validation-badge.ok   { background: #d1e7dd; color: #0a7d2c; }
+  .validation-badge.warn { background: #fff3cd; color: #8a6300; }
+  .validation-badge.bad  { background: #f8d7da; color: #c00; }
+  .validation-badge .tooltip-text {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 6px;
+    background: #1a1a1a;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 400;
+    z-index: 999;
+    min-width: 260px;
+    max-width: 480px;
+    white-space: normal;
+    text-align: left;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    line-height: 1.5;
+  }
+  .validation-badge:hover .tooltip-text { display: block; }
+  .validation-badge .tooltip-text li { margin: 3px 0; }
+  .validation-badge .tooltip-text ul { padding-left: 18px; margin: 4px 0; }
+
+  /* ============ v32 Summary Panel Styles ============ */
+  .validation-summary {
+    background: #fff3cd;
+    border: 2px solid #f0c000;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 12px;
+    font-size: 13px;
+    color: #8a6300;
+    cursor: pointer;
+  }
+  .validation-summary.bad { background: #f8d7da; border-color: #dc3545; color: #842029; }
+  .validation-summary:hover { background: #ffe69c; }
+  .validation-summary.bad:hover { background: #f5c2c7; }
+  .validation-summary h5 { margin: 0 0 6px 0; font-size: 13px; }
+  .validation-summary-detail { display: none; margin-top: 10px; font-size: 12px; color: #333; }
+  .validation-summary.expanded .validation-summary-detail { display: block; }
+  .validation-summary-detail ul { margin: 4px 0; padding-left: 20px; }
+
   @media (max-width: 700px) {
     body { padding: 0 8px; }
     h1 { font-size: 17px; }
@@ -51,14 +109,17 @@
     .row-actions button { flex: 1 1 100%; }
     th, td { font-size: 11px; padding: 4px 5px; }
     .log, .log2 { height: 110px; font-size: 10px; }
+    .validation-badge .tooltip-text {
+      left: auto; right: 0; max-width: 90vw;
+    }
   }
 </style>
 </head>
 <body>
 
-<div class="banner">✅ v31 LOADED — "Address :" prefix stripped from extracted addresses</div>
+<div class="banner">✅ v32 LOADED — Silent validation: bad rows get ⚠/❌ badges, problem fields get red underline</div>
 
-<h1>GeM PDF → Excel Extractor <span class="tag">v31</span></h1>
+<h1>GeM PDF → Excel Extractor <span class="tag">v32</span></h1>
 <div class="sub">Extract GeM contract PDFs → append to master Excel · mobile-ready · learns seller layouts · skips duplicates</div>
 
 <div class="err" id="errBox"></div>
@@ -141,7 +202,7 @@ var HEADERS = [
   "Price (Inclusive of All Duties & Taxes) – INR",
   "One actual sample PDF"
 ];
-var LS_LEARNED = "gem_learned_patterns_v23";
+var LS_LEARNED = "gem_learned_patterns_v24";
 
 var logEl = document.getElementById('log');
 var rawTextEl = document.getElementById('rawText');
@@ -354,14 +415,13 @@ function readInlineValue(block, labelRegex, options){
 }
 
 /* =====================================================================
-   ★★★ BUYER ADDRESS — v31 (strips "Address :" prefix)
+   BUYER ADDRESS
    ===================================================================== */
 function extractBuyerAddress(text, resolvedBuyerGstin){
   var buyerBlock = findSection(text, /Buyer\s*Details/i,
     [/Financial\s*Approval|Paying\s*Authority\s*Details|Seller\s*Details/i]);
   if(!buyerBlock) buyerBlock = text.split(/Financial\s*Approval|Paying\s*Authority\s*Details/i)[0] || text;
 
-  // -------- Try 1: Buyer Details "Address :" label --------
   var labelRe = /(?:पता\s*\|?\s*|पद\s*\|?\s*)?Address\s*:?\s*/i;
   var m = buyerBlock.match(labelRe);
   if(m){
@@ -382,7 +442,6 @@ function extractBuyerAddress(text, resolvedBuyerGstin){
     if(addr1 && addr1.length > 10) return addr1;
   }
 
-  // -------- Try 2: text right after the Buyer GSTIN value --------
   if(resolvedBuyerGstin){
     var gstinRe = new RegExp(
       "GSTIN\\s*:?\\s*" + resolvedBuyerGstin + "\\s+([\\s\\S]*?)(?=\\n\\s*(?:[A-Z][a-z]+\\s+\\||वित्तीय|Financial|भुगतान|Paying|विक्रेता|Seller|वितरण|Delivery|उत्पाद|Product|\\*|\\\"|'))",
@@ -395,7 +454,6 @@ function extractBuyerAddress(text, resolvedBuyerGstin){
     }
   }
 
-  // -------- Try 3: Consignee Detail "Address :" --------
   var consBlock = findSection(text, /Consignee\s*Detail/i,
     [/Product\s*Specification|Terms\s*and\s*Conditions|ePBG|नियम\s*और/i]);
   if(consBlock){
@@ -406,7 +464,6 @@ function extractBuyerAddress(text, resolvedBuyerGstin){
     }
   }
 
-  // -------- Try 4: Paying Authority "Address :" --------
   var payBlock = findSection(text, /Paying\s*Authority\s*Details/i,
     [/Seller\s*Details|GST\s*\/\s*Tax|Product\s*Details|Delivery\s*Instructions/i]);
   if(payBlock){
@@ -420,33 +477,20 @@ function extractBuyerAddress(text, resolvedBuyerGstin){
   return "";
 }
 
-/* ★★★ trimAddressJunk — now strips "Address :" prefix too */
 function trimAddressJunk(s){
   if(!s) return "";
   s = stripHindi(s).replace(/\s+/g, " ").trim();
-
-  /* ★ Strip leading label prefix ("Address :", "पता :", "पद :", etc.) */
   s = s.replace(/^(?:Address|पता|पद|पत)\s*[:|]\s*/i, "").trim();
-  /* Also strip any leftover "|" or ":" at start */
   s = s.replace(/^[|\s:]+/, "").trim();
-
-  /* Cut everything after "India" */
   var idx = s.search(/\bIndia\b/i);
-  if(idx >= 0){
-    s = s.slice(0, idx + 5);
-  }
-
-  /* Remove trailing punctuation, quotes, stray single letters */
+  if(idx >= 0){ s = s.slice(0, idx + 5); }
   s = s
     .replace(/[,\s"'`~!@#$%^&*()_+=\[\]{}|\\/<>?;:]+$/g, "")
     .replace(/\s+[a-z]\s*$/i, "")
     .replace(/\s+/g, " ")
     .trim();
-
-  /* Final: keep only up to "India" if present */
   var m = s.match(/^([\s\S]*?India)\b[\s\S]*$/i);
   if(m) s = m[1];
-
   return s;
 }
 
@@ -562,7 +606,7 @@ function extractProductName(text){
     .trim();
 }
 
-/* ========== TABLE ROW — comma-aware ========== */
+/* ========== TABLE ROW ========== */
 function extractTableRow(text){
   var result = { qty: "", unit: "", total: "" };
   var reA = /([\d,]+)\s*packet\s*([\d,.]+)\s*NA\s*([\d,]+)/i;
@@ -596,6 +640,135 @@ function extractTableRow(text){
     }
   }
   return result;
+}
+
+/* =====================================================================
+   ★★★ v32 VALIDATION ENGINE
+   
+   Returns: { issues: [...], badge: "ok"|"warn"|"bad", warnFields: [...] }
+   - issues: array of strings describing problems
+   - badge:  "ok" (0 issues) / "warn" (1-2) / "bad" (3+)
+   - warnFields: array of field names that should be red-underlined
+   ===================================================================== */
+
+/* Fields that MUST be present — missing = critical */
+var CRITICAL_FIELDS = [
+  "Generated Date", "Buyer GSTIN", "Seller GSTIN",
+  "Buyer Address", "Seller Company Name",
+  "Product Name", "Ordered Quantity", "Unit Price",
+  "Price (Inclusive of All Duties & Taxes) – INR"
+];
+
+function isValuePresent(v){
+  if(v === null || v === undefined) return false;
+  var t = (v + "").trim();
+  if(!t) return false;
+  if(t === "-" || t === "–" || t === "—" || t === "~") return false;
+  if(/^n\/?a$/i.test(t)) return false;
+  return true;
+}
+
+function normalizeForSearch(s){
+  return (s + "")
+    .toLowerCase()
+    .replace(/[\s,.\-\/()&]+/g, "")
+    .trim();
+}
+
+function validateRow(row, rawPdfText){
+  var issues = [];
+  var warnFields = [];
+
+  /* -------- Check 1: field completeness -------- */
+  var missingCount = 0;
+  HEADERS.forEach(function(h, i){
+    var val = row[i];
+    if(!isValuePresent(val)){
+      missingCount++;
+      warnFields.push(h);
+      issues.push("Missing: " + h);
+    }
+  });
+
+  /* -------- Check 2: value presence in PDF text -------- */
+  // Only run for critical fields, only if value present
+  var pdfNorm = normalizeForSearch(rawPdfText || "");
+  CRITICAL_FIELDS.forEach(function(h){
+    var idx = HEADERS.indexOf(h);
+    if(idx < 0) return;
+    var val = row[idx];
+    if(!isValuePresent(val)) return;
+    // For long text values (address/product), check the first 5 words
+    var probe = (val + "").split(/\s+/).slice(0, 5).join(" ");
+    var normProbe = normalizeForSearch(probe);
+    if(normProbe.length < 4) return;
+    if(pdfNorm.indexOf(normProbe) === -1){
+      issues.push("Not found in PDF text: " + h + " → \"" + probe + "\"");
+      if(warnFields.indexOf(h) === -1) warnFields.push(h);
+    }
+  });
+
+  /* -------- Check 3: format validation -------- */
+  // Generated Date
+  var gi = HEADERS.indexOf("Generated Date");
+  if(isValuePresent(row[gi]) && !/^\d{1,2}-[A-Za-z]{3}-\d{4}$/.test(row[gi])){
+    issues.push("Invalid format: Generated Date → " + row[gi]);
+    if(warnFields.indexOf("Generated Date") === -1) warnFields.push("Generated Date");
+  }
+  // Buyer GSTIN
+  var bgi = HEADERS.indexOf("Buyer GSTIN");
+  if(isValuePresent(row[bgi]) && !/^\d{2}[A-Z][A-Z0-9]{12}$/.test(row[bgi])){
+    issues.push("Invalid GSTIN format: Buyer GSTIN → " + row[bgi]);
+    if(warnFields.indexOf("Buyer GSTIN") === -1) warnFields.push("Buyer GSTIN");
+  }
+  // Seller GSTIN
+  var sgi = HEADERS.indexOf("Seller GSTIN");
+  if(isValuePresent(row[sgi]) && !/^\d{2}[A-Z][A-Z0-9]{12}$/.test(row[sgi])){
+    issues.push("Invalid GSTIN format: Seller GSTIN → " + row[sgi]);
+    if(warnFields.indexOf("Seller GSTIN") === -1) warnFields.push("Seller GSTIN");
+  }
+  // Ordered Quantity
+  var qi = HEADERS.indexOf("Ordered Quantity");
+  if(isValuePresent(row[qi]) && !/\d+\s*packet/i.test(row[qi])){
+    issues.push("Invalid format: Ordered Quantity → " + row[qi]);
+    if(warnFields.indexOf("Ordered Quantity") === -1) warnFields.push("Ordered Quantity");
+  }
+  // Numeric fields (Unit Price, Total)
+  ["Unit Price", "Price (Inclusive of All Duties & Taxes) – INR"].forEach(function(h){
+    var i2 = HEADERS.indexOf(h);
+    if(isValuePresent(row[i2])){
+      var num = parseFloat((row[i2] + "").replace(/,/g, ""));
+      if(isNaN(num)){
+        issues.push("Not numeric: " + h + " → " + row[i2]);
+        if(warnFields.indexOf(h) === -1) warnFields.push(h);
+      }
+    }
+  });
+
+  /* -------- Check 4: math consistency (qty × unit = total) -------- */
+  var ui = HEADERS.indexOf("Unit Price");
+  var ti = HEADERS.indexOf("Price (Inclusive of All Duties & Taxes) – INR");
+  if(isValuePresent(row[qi]) && isValuePresent(row[ui]) && isValuePresent(row[ti])){
+    var qtyNum = parseFloat((row[qi] + "").replace(/[^\d.]/g, ""));
+    var unitNum = parseFloat((row[ui] + "").replace(/,/g, ""));
+    var totalNum = parseFloat((row[ti] + "").replace(/,/g, ""));
+    if(!isNaN(qtyNum) && !isNaN(unitNum) && !isNaN(totalNum) && qtyNum > 0 && unitNum > 0){
+      var expected = qtyNum * unitNum;
+      var diff = Math.abs(expected - totalNum);
+      var tolerance = Math.max(1, expected * 0.02); // 2% tolerance
+      if(diff > tolerance){
+        issues.push("Math mismatch: " + qtyNum + " × " + unitNum + " = " + expected.toFixed(2) + ", but total = " + totalNum);
+        // Don't underline (may be intentional), just flag
+      }
+    }
+  }
+
+  /* -------- Pick badge color -------- */
+  var badge = "ok";
+  if(issues.length >= 3) badge = "bad";
+  else if(issues.length > 0) badge = "warn";
+
+  return { issues: issues, badge: badge, warnFields: warnFields };
 }
 
 /* =====================================================================
@@ -640,8 +813,7 @@ function extractFields(text, filename){
     set("Buyer Contact No", vc);
   }
 
-  var buyerAddr = extractBuyerAddress(text, resolved.buyerGstin);
-  set("Buyer Address", buyerAddr);
+  set("Buyer Address", extractBuyerAddress(text, resolved.buyerGstin));
 
   {
     var vcn = "";
@@ -692,12 +864,11 @@ function extractFields(text, filename){
     "\n\n===== RESOLVED =====\n" +
     "Buyer GSTIN:  '" + resolved.buyerGstin + "'\n" +
     "Seller GSTIN: '" + resolved.sellerGstin + "'\n\n" +
-    "===== BUYER ADDRESS RESULT =====\n" + (buyerAddr || "(EMPTY)") +
-    "\n\n===== TABLE ROW =====\n" + JSON.stringify(row);
+    "===== TABLE ROW =====\n" + JSON.stringify(row);
 
   applyLearned(found);
   var finalRow = HEADERS.map(function(h){ return found[h] || ""; });
-  return { row: finalRow, found: found };
+  return { row: finalRow, found: found, rawText: text };
 }
 
 /* ========== Extract button ========== */
@@ -724,7 +895,14 @@ document.getElementById('extractBtn').addEventListener('click', async function()
       var res = extractFields(text, f.name);
       var isDup = knownFilenames.has(f.name.toLowerCase());
       if(isDup) log('⚠ Duplicate: ' + f.name);
-      pendingRows.push({ filename: f.name, row: res.row, found: res.found, isDuplicate: isDup, skip: isDup });
+      pendingRows.push({
+        filename: f.name,
+        row: res.row,
+        found: res.found,
+        isDuplicate: isDup,
+        skip: isDup,
+        rawText: res.rawText
+      });
       log('Extracted: ' + f.name);
     }catch(err){
       log('ERROR ' + f.name + ': ' + err.message);
@@ -736,25 +914,73 @@ document.getElementById('extractBtn').addEventListener('click', async function()
   log('Done. Review ' + pendingRows.length + ' row(s).');
 });
 
+/* =====================================================================
+   RENDER REVIEW — v32 with validation badges
+   ===================================================================== */
 function renderReview(){
   if(!pendingRows.length){ reviewArea.innerHTML = "<em>No data yet.</em>"; return; }
   reviewArea.innerHTML = "";
-  pendingRows.forEach(function(pr,rowIdx){
+
+  var totalIssues = 0;
+  var badRowsCount = 0;
+  var summaryItems = [];
+
+  pendingRows.forEach(function(pr, rowIdx){
+    // ★ Run validation
+    var validation = validateRow(pr.row, pr.rawText);
+    pr._validation = validation;
+    totalIssues += validation.issues.length;
+    if(validation.badge !== "ok") badRowsCount++;
+    if(validation.issues.length > 0){
+      summaryItems.push({
+        filename: pr.filename,
+        issues: validation.issues
+      });
+    }
+
     var card = document.createElement('div');
     card.className = 'review-card' + (pr.isDuplicate ? ' dup' : '');
+
     var filled = Object.keys(pr.found).filter(function(k){ return pr.found[k] && (pr.found[k]+"").trim(); }).length;
     var dupBadge = pr.isDuplicate ? '<span class="badge badge-dup">⚠ duplicate — will be skipped</span>' : '';
-    card.innerHTML = '<h4>📄 ' + pr.filename +
+
+    // ★ Build validation badge HTML
+    var validationBadgeHTML = "";
+    if(validation.badge === "ok"){
+      // No badge for clean rows — keeps UI unchanged for good rows
+      validationBadgeHTML = "";
+    } else {
+      var cls = validation.badge === "bad" ? "bad" : "warn";
+      var icon = validation.badge === "bad" ? "❌" : "⚠";
+      var label = validation.issues.length + " issue" + (validation.issues.length === 1 ? "" : "s");
+      var itemsHTML = validation.issues.map(function(s){
+        return "<li>" + escapeHtml(s) + "</li>";
+      }).join("");
+      validationBadgeHTML =
+        '<span class="validation-badge ' + cls + '">' +
+          icon + ' ' + label +
+          '<span class="tooltip-text"><strong>Issues found:</strong><ul>' + itemsHTML + '</ul></span>' +
+        '</span>';
+    }
+
+    card.innerHTML = '<h4>📄 ' + escapeHtml(pr.filename) +
       ' <span class="badge ' + (filled>=10?'badge-ok':'badge-miss') + '">' + filled + '/14 fields</span>' +
       dupBadge +
+      validationBadgeHTML +
       ' <label style="font-weight:400;font-size:12px;margin-left:auto;">' +
       '<input type="checkbox" class="skipCheck" data-idx="' + rowIdx + '" ' + (pr.skip?'checked':'') + '/> Skip' +
       '</label></h4>';
+
     var grid = document.createElement('div');
     grid.className = 'grid';
     HEADERS.forEach(function(h,i){
       var lab = document.createElement('label');
       lab.textContent = h;
+      // ★ Add red underline class if this field has issues
+      if(validation.warnFields.indexOf(h) !== -1){
+        lab.className = 'field-warn';
+        lab.title = 'This field has a validation issue';
+      }
       var inp = document.createElement('input');
       inp.type = 'text';
       inp.value = pr.row[i] || "";
@@ -764,6 +990,34 @@ function renderReview(){
         var ri = +e.target.dataset.rowIdx, ci = +e.target.dataset.colIdx;
         pendingRows[ri].row[ci] = e.target.value;
         pendingRows[ri].found[HEADERS[ci]] = e.target.value;
+        // ★ Re-validate on edit
+        var v = validateRow(pendingRows[ri].row, pendingRows[ri].rawText);
+        pendingRows[ri]._validation = v;
+        // Update the badge + label styling inline
+        var badgeEl = card.querySelector('.validation-badge');
+        var oldVal = badgeEl ? badgeEl.outerHTML : '';
+        var newVal = '';
+        if(v.badge !== "ok"){
+          var cls2 = v.badge === "bad" ? "bad" : "warn";
+          var icon2 = v.badge === "bad" ? "❌" : "⚠";
+          var label2 = v.issues.length + " issue" + (v.issues.length === 1 ? "" : "s");
+          var itemsHTML2 = v.issues.map(function(s){
+            return "<li>" + escapeHtml(s) + "</li>";
+          }).join("");
+          newVal = '<span class="validation-badge ' + cls2 + '">' +
+                    icon2 + ' ' + label2 +
+                    '<span class="tooltip-text"><strong>Issues found:</strong><ul>' + itemsHTML2 + '</ul></span>' +
+                   '</span>';
+        }
+        var h4 = card.querySelector('h4');
+        if(badgeEl){ badgeEl.outerHTML = newVal || ''; }
+        else if(newVal && h4){ h4.insertAdjacentHTML('beforeend', ' ' + newVal); }
+        // Update field label underline
+        var lbl = grid.children[i * 3];
+        if(lbl){
+          lbl.className = v.warnFields.indexOf(h) !== -1 ? 'field-warn' : '';
+          lbl.title = v.warnFields.indexOf(h) !== -1 ? 'This field has a validation issue' : '';
+        }
       });
       var lb = document.createElement('button');
       lb.className = 'tiny warn';
@@ -783,6 +1037,35 @@ function renderReview(){
     }
     reviewArea.appendChild(card);
   });
+
+  // ★ Add summary panel at the bottom (only if there are issues)
+  if(summaryItems.length > 0){
+    var summaryDiv = document.createElement('div');
+    var isBad = badRowsCount >= 3 || totalIssues >= 10;
+    summaryDiv.className = 'validation-summary' + (isBad ? ' bad' : '');
+    summaryDiv.innerHTML =
+      '<h5>⚠ Validation summary — ' + summaryItems.length + ' file(s) with issues (click to expand)</h5>' +
+      '<div class="validation-summary-detail">' +
+        summaryItems.map(function(item){
+          return '<strong>' + escapeHtml(item.filename) + '</strong>' +
+                 '<ul>' + item.issues.map(function(s){ return '<li>' + escapeHtml(s) + '</li>'; }).join('') + '</ul>';
+        }).join("") +
+      '</div>';
+    summaryDiv.addEventListener('click', function(){
+      summaryDiv.classList.toggle('expanded');
+    });
+    reviewArea.appendChild(summaryDiv);
+  }
+}
+
+/* ★ HTML escape helper for safe injection */
+function escapeHtml(s){
+  return (s + "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function learnRow(rowIdx){
