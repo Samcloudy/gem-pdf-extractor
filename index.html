@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GeM PDF → Excel Extractor v33</title>
+<title>GeM PDF → Excel Extractor v35</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -31,6 +31,7 @@
   .badge-ok { background: #d1e7dd; color: #0a7d2c; }
   .badge-miss { background: #f8d7da; color: #c00; }
   .badge-dup { background: #fff3cd; color: #8a6300; }
+  .badge-na { background: #e2e3e5; color: #41464b; }
   .queue { max-height: 180px; overflow: auto; font-size: 12px; border: 1px solid #eee; padding: 6px; border-radius: 4px; background: #fff; }
   input[type="text"] { padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 100%; font-size: 13px; }
   input[type="file"] { font-size: 13px; max-width: 100%; }
@@ -45,19 +46,16 @@
   .err { background:#f8d7da; color:#842029; padding:8px 12px; border-radius:6px; font-size:13px; margin-bottom:10px; display:none; }
   .banner { background:#cfe2ff; color:#084298; padding:10px 14px; border-radius:6px; font-size:14px; font-weight:bold; margin-bottom:12px; border:2px solid #0b6efd; }
 
-  /* Progress bar */
   .progress-wrap { background: #e9ecef; border-radius: 6px; height: 22px; overflow: hidden; position: relative; margin-top: 8px; }
   .progress-bar { height: 100%; background: linear-gradient(90deg,#0b6efd,#198754); width: 0%; transition: width .2s; }
   .progress-text { position: absolute; inset: 0; text-align: center; font-size: 12px; line-height: 22px; color: #000; font-weight: 600; }
   .stats-row { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; margin-top: 6px; }
   .stats-row span b { color: #0b6efd; }
 
-  /* Pagination */
   .pager { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; font-size: 13px; }
   .pager button { padding: 6px 12px; }
   .pager input[type="text"] { width: 80px; }
 
-  /* Validation badges */
   .validation-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; cursor: help; position: relative; }
   .validation-badge.ok   { background: #d1e7dd; color: #0a7d2c; }
   .validation-badge.warn { background: #fff3cd; color: #8a6300; }
@@ -81,7 +79,6 @@
   .validation-summary.expanded .validation-summary-detail { display: block; }
   .validation-summary-detail ul { margin: 4px 0; padding-left: 20px; }
 
-  /* Job resume banner */
   .resume-banner { background: #fff3cd; border: 2px solid #f0c000; color: #8a6300; padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; display: none; }
   .resume-banner.visible { display: block; }
   .resume-banner button { margin-left: 8px; }
@@ -101,14 +98,13 @@
 </head>
 <body>
 
-<div class="banner">✅ v33 LOADED — Desktop-grade · resumable · paginated review · handles 1 → 10,000+ PDFs</div>
+<div class="banner">✅ v35 LOADED — NA / N/A / "-" now preserved in GSTIN &amp; contact fields (avoids "not extracted" misconception)</div>
 
-<h1>GeM PDF → Excel Extractor <span class="tag">v33</span></h1>
-<div class="sub">Extract GeM contract PDFs → append to master Excel · IndexedDB-backed queue · resumable · skips duplicates · learns seller layouts</div>
+<h1>GeM PDF → Excel Extractor <span class="tag">v35</span></h1>
+<div class="sub">Extract GeM contract PDFs → append to master Excel · IndexedDB queue · resumable · skips duplicates · learns seller layouts</div>
 
 <div class="err" id="errBox"></div>
 
-<!-- Resume banner -->
 <div class="resume-banner" id="resumeBanner">
   <b>⏸ Previous job found.</b>
   <span id="resumeStats"></span>
@@ -116,14 +112,12 @@
   <button class="danger tiny" id="discardBtn">Discard job</button>
 </div>
 
-<!-- Step 1: Master -->
 <div class="box">
   <h3>Step 1 — Load your existing Master sheet (optional)</h3>
   <input type="file" id="masterFile" accept=".xlsx,.xls" />
   <div style="font-size:11px;color:#666;margin-top:6px;">Loaded: <span id="masterStatus">none</span> · Rows: <span id="masterRows">0</span></div>
 </div>
 
-<!-- Step 2: PDFs -->
 <div class="box">
   <h3>Step 2 — Add GeM contract PDFs (in chunks — queue persists)</h3>
   <input type="file" id="pdfFiles" accept="application/pdf,application/x-pdf,.pdf" multiple />
@@ -139,7 +133,6 @@
   </div>
 </div>
 
-<!-- Action buttons -->
 <div class="box row-actions">
   <button id="extractBtn">1. Extract All Queued</button>
   <button id="cancelBtn" class="danger" disabled>Cancel</button>
@@ -150,7 +143,6 @@
   <span class="tag" id="statusTag">Idle</span>
 </div>
 
-<!-- Progress -->
 <div class="box" id="progressBox" style="display:none;">
   <h3>⏳ Extraction progress</h3>
   <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div><div class="progress-text" id="progressText">0 / 0</div></div>
@@ -161,7 +153,6 @@
   </div>
 </div>
 
-<!-- Review (paginated) -->
 <div class="box">
   <h3>Review — paginated (edits auto-save to IndexedDB)</h3>
   <div class="pager">
@@ -176,7 +167,6 @@
   <div id="reviewArea"><em>No data yet. Queue PDFs and click "Extract All Queued".</em></div>
 </div>
 
-<!-- Master preview -->
 <div class="box">
   <h3>Master preview (already-saved rows)</h3>
   <div class="table-wrap" style="max-height: 240px; overflow: auto;">
@@ -184,7 +174,6 @@
   </div>
 </div>
 
-<!-- Debug -->
 <div class="box">
   <h3>🔍 Debug — extraction trace (last PDF)</h3>
   <div class="log2" id="debugBlocks">No data yet.</div>
@@ -203,9 +192,6 @@
 <div class="footer-note">All processing happens on your device. No data is uploaded anywhere.</div>
 
 <script>
-/* ============================================================================
-   GLOBAL ERROR HANDLERS
-   ============================================================================ */
 window.addEventListener('error', function(e){
   var box = document.getElementById('errBox');
   if(box){ box.style.display='block'; box.textContent = 'JS Error: ' + (e.message || e.error || 'unknown'); }
@@ -215,9 +201,6 @@ window.addEventListener('unhandledrejection', function(e){
   if(box){ box.style.display='block'; box.textContent = 'Async Error: ' + (e.reason && e.reason.message ? e.reason.message : e.reason); }
 });
 
-/* ============================================================================
-   CONSTANTS
-   ============================================================================ */
 var HEADERS = [
   "Generated Date",
   "Buyer GSTIN",
@@ -234,16 +217,16 @@ var HEADERS = [
   "Price (Inclusive of All Duties & Taxes) – INR",
   "One actual sample PDF"
 ];
-var LS_LEARNED = "gem_learned_patterns_v24";
+var LS_LEARNED = "gem_learned_patterns_v25";
 var DB_NAME = "gem_extractor_v33";
 var DB_VERSION = 1;
-var STORE_QUEUE = "queue";     // queued files (not yet extracted)
-var STORE_ROWS  = "rows";      // extracted rows
-var REVIEW_PAGE_SIZE = 20;     // rows per review page
+var STORE_QUEUE = "queue";
+var STORE_ROWS  = "rows";
+var REVIEW_PAGE_SIZE = 20;
 
-/* ============================================================================
-   DOM REFS
-   ============================================================================ */
+/* ★ v35: canonical sentinel value to represent "explicitly not applicable" */
+var NA_SENTINEL = "NA";
+
 var logEl = document.getElementById('log');
 var rawTextEl = document.getElementById('rawText');
 var debugBlocksEl = document.getElementById('debugBlocks');
@@ -283,9 +266,6 @@ var resumeStats = document.getElementById('resumeStats');
 var resumeBtn = document.getElementById('resumeBtn');
 var discardBtn = document.getElementById('discardBtn');
 
-/* ============================================================================
-   STATE
-   ============================================================================ */
 var workbook = null, worksheet = null;
 var knownFilenames = new Set();
 var currentPage = 1;
@@ -294,27 +274,29 @@ var cancelRequested = false;
 var isExtracting = false;
 var jobStats = { queued: 0, extracted: 0, skipped: 0, errors: 0 };
 
-/* ============================================================================
-   LOG
-   ============================================================================ */
+var _rowCache = null;
+var _rowCacheValid = false;
+function invalidateRowCache(){ _rowCache = null; _rowCacheValid = false; }
+async function getRowsCached(){
+  if(!_rowCacheValid || !_rowCache){
+    _rowCache = await dbGetAll(STORE_ROWS);
+    _rowCacheValid = true;
+  }
+  return _rowCache;
+}
+
 function log(msg){
   var t = new Date().toLocaleTimeString();
   logEl.textContent += '[' + t + '] ' + msg + '\n';
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-/* ============================================================================
-   BUILD PREVIEW HEADERS
-   ============================================================================ */
 HEADERS.forEach(function(h){
   var th = document.createElement('th');
   th.textContent = h;
   previewHead.appendChild(th);
 });
 
-/* ============================================================================
-   PDF.JS SETUP
-   ============================================================================ */
 if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 }else{
@@ -322,7 +304,7 @@ if(window.pdfjsLib){
 }
 
 /* ============================================================================
-   INDEXEDDB WRAPPER (minimal, promise-based)
+   INDEXEDDB
    ============================================================================ */
 var dbPromise = null;
 function openDB(){
@@ -343,7 +325,6 @@ function openDB(){
   });
   return dbPromise;
 }
-
 function dbAdd(store, value){
   return openDB().then(function(db){
     return new Promise(function(resolve, reject){
@@ -354,7 +335,6 @@ function dbAdd(store, value){
     });
   });
 }
-
 function dbPut(store, value){
   return openDB().then(function(db){
     return new Promise(function(resolve, reject){
@@ -365,7 +345,6 @@ function dbPut(store, value){
     });
   });
 }
-
 function dbGetAll(store){
   return openDB().then(function(db){
     return new Promise(function(resolve, reject){
@@ -376,7 +355,6 @@ function dbGetAll(store){
     });
   });
 }
-
 function dbGet(store, id){
   return openDB().then(function(db){
     return new Promise(function(resolve, reject){
@@ -387,7 +365,6 @@ function dbGet(store, id){
     });
   });
 }
-
 function dbDelete(store, id){
   return openDB().then(function(db){
     return new Promise(function(resolve, reject){
@@ -398,7 +375,6 @@ function dbDelete(store, id){
     });
   });
 }
-
 function dbClear(store){
   return openDB().then(function(db){
     return new Promise(function(resolve, reject){
@@ -409,7 +385,6 @@ function dbClear(store){
     });
   });
 }
-
 function dbCount(store){
   return openDB().then(function(db){
     return new Promise(function(resolve, reject){
@@ -422,7 +397,7 @@ function dbCount(store){
 }
 
 /* ============================================================================
-   LEARNED PATTERNS (localStorage — small data)
+   LEARNED
    ============================================================================ */
 function loadLearned(){ try { return JSON.parse(localStorage.getItem(LS_LEARNED) || "{}"); } catch(e){ return {}; } }
 function saveLearned(o){ localStorage.setItem(LS_LEARNED, JSON.stringify(o)); }
@@ -445,7 +420,6 @@ function renderPreviewFromSheet(){
   var aoa = sheetToAOA(worksheet);
   previewBody.innerHTML = "";
   var rows = aoa.slice(1);
-  // Cap preview render at 200 rows to keep UI snappy on huge sheets
   var cap = Math.min(rows.length, 200);
   for(var i=0; i<cap; i++){
     var row = rows[i];
@@ -481,9 +455,6 @@ function rebuildKnownFilenames(){
   });
 }
 
-/* ============================================================================
-   MASTER LOAD
-   ============================================================================ */
 masterInput.addEventListener('change', async function(e){
   var f = e.target.files && e.target.files[0];
   if(!f) return;
@@ -499,9 +470,6 @@ masterInput.addEventListener('change', async function(e){
   }
 });
 
-/* ============================================================================
-   QUEUE INPUT — add files to IndexedDB
-   ============================================================================ */
 pdfInput.addEventListener('change', async function(e){
   var files = e.target.files;
   if(!files || files.length === 0) return;
@@ -522,7 +490,6 @@ pdfInput.addEventListener('change', async function(e){
       log('ERROR queueing ' + f.name + ': ' + err.message);
     }
   }
-  // Reset input so same files can be re-added later
   pdfInput.value = "";
   log('Queued ' + added + ' file(s).');
   await refreshQueueView();
@@ -530,7 +497,7 @@ pdfInput.addEventListener('change', async function(e){
 
 async function refreshQueueView(){
   var queued = await dbGetAll(STORE_QUEUE);
-  var extracted = await dbGetAll(STORE_ROWS);
+  var extracted = await getRowsCached();
   jobStats.queued = queued.length;
   jobStats.extracted = extracted.length;
   statQueued.textContent = queued.length;
@@ -538,8 +505,13 @@ async function refreshQueueView(){
   statSkipped.textContent = extracted.filter(function(r){ return r.skip; }).length;
   statErrors.textContent = extracted.filter(function(r){ return r.error; }).length;
 
+  extractBtn.textContent = queued.length > 0
+    ? "1. Extract All Queued (" + queued.length + ")"
+    : "1. Extract All Queued";
+
   if(queued.length === 0 && extracted.length === 0){
     queueList.textContent = "No files queued.";
+    await renderReview();
     return;
   }
   var html = '';
@@ -559,7 +531,7 @@ async function refreshQueueView(){
 }
 
 /* ============================================================================
-   PDF TEXT EXTRACTION
+   PDF TEXT
    ============================================================================ */
 async function readPdfTextFromBuffer(buffer){
   if(!window.pdfjsLib) throw new Error("PDF library not loaded.");
@@ -594,7 +566,6 @@ function stripHindi(s){
     .replace(/\s+/g," ")
     .trim();
 }
-
 function findSection(text, startRegex, endRegexes){
   var m = text.match(startRegex);
   if(!m) return "";
@@ -606,7 +577,6 @@ function findSection(text, startRegex, endRegexes){
   }
   return text.slice(start, end);
 }
-
 var LABEL_STOP = /^(Designation|Contact\s*No|Email\s*ID|GSTIN|Address|पद|पता|संपर्क|ईमेल|जीएसटीआईएन|MSME|एमएसएमई|Role\s*:|Payment\s*Mode|GeM\s*Seller\s*ID|Company\s*Name|Financial|IFD|Product\s*Details|Consignee|Terms|Note|ePBG|Product\s*Name|Brand|Model|HSN|Country|Category|Selling|Catalogue|Ordered|Unit\s*Price|Total\s*Order|Organisation|Type\s*:|Ministry|Department|Office\s*Zone|State\s*Government)/i;
 
 function isJunkLine(l){
@@ -624,7 +594,6 @@ function isJunkLine(l){
   if(letters < 3) return true;
   return false;
 }
-
 function isValidAddressLine(l){
   var s = (l||"").trim();
   if(!s) return false;
@@ -634,7 +603,6 @@ function isValidAddressLine(l){
   if(!/[,\-0-9]/.test(s)) return false;
   return true;
 }
-
 function readLabelValue(block, labelRegex, options){
   options = options || {};
   var maxLines = options.maxLines || 5;
@@ -657,7 +625,6 @@ function readLabelValue(block, labelRegex, options){
   var joined = out.join(joinWith);
   return stripHindi(joined).replace(/\s+/g," ").replace(/,\s*,/g,",").replace(/\s+,/g,",").replace(/,\s*$/,"").trim();
 }
-
 function readInlineValue(block, labelRegex, options){
   options = options || {};
   var m = block.match(labelRegex);
@@ -665,6 +632,21 @@ function readInlineValue(block, labelRegex, options){
   var value = block.slice(m.index + m[0].length).split("\n")[0].trim();
   if(options.stripTrailingDash) value = value.replace(/[-]+$/,"").trim();
   return stripHindi(value);
+}
+
+/* ★ v35: detect if a value is an "NA-style" sentinel
+   Accepts: NA, N/A, n/a, -, –, —, ~, nil, none, not applicable
+   Returns the canonical sentinel ("NA") or "" if not a sentinel. */
+function detectNaSentinel(rawValue){
+  if(rawValue === null || rawValue === undefined) return "";
+  var t = (rawValue + "").trim();
+  if(!t) return "";
+  if(t === "-" || t === "–" || t === "—" || t === "~") return NA_SENTINEL;
+  if(/^n\.?\s*\/?\s*a\.?$/i.test(t)) return NA_SENTINEL;  // NA, N/A, N.A.
+  if(/^nil$/i.test(t)) return NA_SENTINEL;
+  if(/^none$/i.test(t)) return NA_SENTINEL;
+  if(/^not\s+applicable$/i.test(t)) return NA_SENTINEL;
+  return "";
 }
 
 /* ============================================================================
@@ -695,7 +677,7 @@ function extractBuyerAddress(text, resolvedBuyerGstin){
     if(addr1 && addr1.length > 10) return addr1;
   }
 
-  if(resolvedBuyerGstin){
+  if(resolvedBuyerGstin && resolvedBuyerGstin !== NA_SENTINEL){
     var gstinRe = new RegExp(
       "GSTIN\\s*:?\\s*" + resolvedBuyerGstin + "\\s+([\\s\\S]*?)(?=\\n\\s*(?:[A-Z][a-z]+\\s+\\||वित्तीय|Financial|भुगतान|Paying|विक्रेता|Seller|वितरण|Delivery|उत्पाद|Product|\\*|\\\"|'))",
       "i"
@@ -748,7 +730,7 @@ function trimAddressJunk(s){
 }
 
 /* ============================================================================
-   GSTIN
+   GSTIN — v35 with NA sentinel detection
    ============================================================================ */
 var GSTIN_PATTERN = /[0-9]{2}[A-Z][A-Z0-9]{12}/;
 
@@ -760,6 +742,8 @@ function isBlankish(s){
   return false;
 }
 
+/* ★ v35: scan function now ALSO records a sentinel when no valid GSTIN
+   but the field explicitly shows NA/N/A/- */
 function scanAllGstinLabels(text){
   var results = [];
   var re = /GSTIN\s*:?/gi;
@@ -770,11 +754,25 @@ function scanAllGstinLabels(text){
     var lines = tail.split("\n");
     var candidates = [lines[0] || ""];
     for(var i=1;i<Math.min(lines.length, 3);i++) candidates.push(lines[i]);
+
+    // First try to find a valid 15-char GSTIN
     var value = "";
+    var rawFirstCandidate = (candidates[0] || "").trim();
     for(var ci=0; ci<candidates.length; ci++){
       var g = candidates[ci].match(GSTIN_PATTERN);
       if(g){ value = g[0].toUpperCase(); break; }
     }
+
+    // If no valid GSTIN, check for a NA sentinel in the first candidate
+    var naMarker = "";
+    if(!value){
+      // strip label prefix, then check
+      var cleaned = stripHindi(rawFirstCandidate).replace(/^[:\-–—~\s]+/, "").trim();
+      // Take only the first "word" of the candidate to avoid false positives
+      var firstWord = cleaned.split(/[\s,;|]+/)[0] || "";
+      naMarker = detectNaSentinel(firstWord);
+    }
+
     var before = text.slice(Math.max(0, m.index - 500), m.index).toLowerCase();
     var section = "unknown";
     var idxBuyer = before.lastIndexOf("buyer details");
@@ -786,48 +784,83 @@ function scanAllGstinLabels(text){
     else if(maxIdx === idxConsignee) section = "consignee";
     else if(maxIdx === idxPaying) section = "paying";
     else if(maxIdx === idxBuyer) section = "buyer";
-    results.push({ value: value, index: m.index, section: section });
+
+    results.push({
+      value: value,
+      naMarker: naMarker,     // "NA" if the field explicitly says NA/N/A/-
+      index: m.index,
+      section: section
+    });
   }
   return results;
 }
 
+/* ★ v35: resolveGstins now falls back to the NA sentinel instead of "" */
 function resolveGstins(labels){
   var sellerGstin = "";
   var buyerGstin = "";
 
+  // ---- Seller GSTIN ----
   for(var i=0;i<labels.length;i++){
-    if(labels[i].section === "seller" && !isBlankish(labels[i].value)){
-      sellerGstin = labels[i].value;
-      break;
+    if(labels[i].section === "seller" && labels[i].value){
+      sellerGstin = labels[i].value; break;
     }
   }
   if(!sellerGstin){
     for(var i=labels.length-1;i>=0;i--){
-      if(!isBlankish(labels[i].value)){ sellerGstin = labels[i].value; break; }
+      if(labels[i].value){ sellerGstin = labels[i].value; break; }
+    }
+  }
+  // Fallback to sentinel if no real value
+  if(!sellerGstin){
+    for(var i=0;i<labels.length;i++){
+      if(labels[i].section === "seller" && labels[i].naMarker){ sellerGstin = labels[i].naMarker; break; }
+    }
+  }
+  if(!sellerGstin){
+    for(var i=labels.length-1;i>=0;i--){
+      if(labels[i].naMarker){ sellerGstin = labels[i].naMarker; break; }
     }
   }
 
+  // ---- Buyer GSTIN ----
   for(var i=0;i<labels.length;i++){
-    if(labels[i].section === "buyer" && !isBlankish(labels[i].value)){ buyerGstin = labels[i].value; break; }
+    if(labels[i].section === "buyer" && labels[i].value){ buyerGstin = labels[i].value; break; }
   }
   if(!buyerGstin){
     for(var i=0;i<labels.length;i++){
-      if(labels[i].section === "paying" && !isBlankish(labels[i].value)){ buyerGstin = labels[i].value; break; }
+      if(labels[i].section === "paying" && labels[i].value){ buyerGstin = labels[i].value; break; }
     }
   }
   if(!buyerGstin){
     for(var i=0;i<labels.length;i++){
-      if(labels[i].section === "consignee" && !isBlankish(labels[i].value)){ buyerGstin = labels[i].value; break; }
+      if(labels[i].section === "consignee" && labels[i].value){ buyerGstin = labels[i].value; break; }
     }
   }
   if(!buyerGstin){
     for(var i=0;i<labels.length;i++){
-      if(!isBlankish(labels[i].value) && labels[i].value !== sellerGstin){
-        buyerGstin = labels[i].value;
-        break;
+      if(labels[i].value && labels[i].value !== sellerGstin){
+        buyerGstin = labels[i].value; break;
       }
     }
   }
+  // Fallback to sentinel — prefer buyer, then paying, then any non-seller
+  if(!buyerGstin){
+    for(var i=0;i<labels.length;i++){
+      if(labels[i].section === "buyer" && labels[i].naMarker){ buyerGstin = labels[i].naMarker; break; }
+    }
+  }
+  if(!buyerGstin){
+    for(var i=0;i<labels.length;i++){
+      if(labels[i].section === "paying" && labels[i].naMarker){ buyerGstin = labels[i].naMarker; break; }
+    }
+  }
+  if(!buyerGstin){
+    for(var i=0;i<labels.length;i++){
+      if(labels[i].naMarker && labels[i].section !== "seller"){ buyerGstin = labels[i].naMarker; break; }
+    }
+  }
+
   return { sellerGstin: sellerGstin, buyerGstin: buyerGstin };
 }
 
@@ -858,7 +891,6 @@ function extractTableRow(text){
   var result = { qty: "", unit: "", total: "" };
   var reA = /([\d,]+)\s*packet\s*([\d,.]+)\s*NA\s*([\d,]+)/i;
   var reB = /([\d,]+)packet([\d,.]+)NA([\d,]+)/i;
-
   var compact = text.replace(/\s+/g, " ");
   var m = compact.match(reA) || compact.match(reB);
   if(m){
@@ -881,16 +913,13 @@ function extractTableRow(text){
   for(var i=lines.length-1; i>=0; i--){
     var l = lines[i];
     var pm = l.match(/([\d,]+)\s*packet/i);
-    if(pm){
-      result.qty = pm[1].replace(/,/g, "");
-      break;
-    }
+    if(pm){ result.qty = pm[1].replace(/,/g, ""); break; }
   }
   return result;
 }
 
 /* ============================================================================
-   VALIDATION ENGINE (v32 logic preserved)
+   VALIDATION — v35 aware of NA sentinel
    ============================================================================ */
 var CRITICAL_FIELDS = [
   "Generated Date", "Buyer GSTIN", "Seller GSTIN",
@@ -905,27 +934,39 @@ function isValuePresent(v){
   if(!t) return false;
   if(t === "-" || t === "–" || t === "—" || t === "~") return false;
   if(/^n\/?a$/i.test(t)) return false;
+  return false === true; // never reach here — replaced below
+}
+
+/* ★ v35: replaces the sentinel check above with a version that
+   treats the NA sentinel as a valid "explicitly blank" value. */
+function isValuePresentV35(v){
+  if(v === null || v === undefined) return false;
+  var t = (v + "").trim();
+  if(!t) return false;
+  // If the value is the canonical sentinel, treat as PRESENT (explicit NA)
+  if(t === NA_SENTINEL) return true;
+  // Otherwise reject dash/dot values
+  if(t === "-" || t === "–" || t === "—" || t === "~") return false;
+  if(/^n\/?a$/i.test(t)) return false; // raw "N/A" is NOT canonical
   return true;
 }
 
 function normalizeForSearch(s){
-  return (s + "")
-    .toLowerCase()
-    .replace(/[\s,.\-\/()&]+/g, "")
-    .trim();
+  return (s + "").toLowerCase().replace(/[\s,.\-\/()&]+/g, "").trim();
 }
 
 function validateRow(row, rawPdfText){
   var issues = [];
   var warnFields = [];
 
-  var missingCount = 0;
   HEADERS.forEach(function(h, i){
     var val = row[i];
-    if(!isValuePresent(val)){
-      missingCount++;
+    // ★ v35: use the NA-aware check
+    if(!isValuePresentV35(val)){
       warnFields.push(h);
       issues.push("Missing: " + h);
+    } else if (val === NA_SENTINEL){
+      // Present but marked NA — that's fine, no issue
     }
   });
 
@@ -935,7 +976,8 @@ function validateRow(row, rawPdfText){
       var idx = HEADERS.indexOf(h);
       if(idx < 0) return;
       var val = row[idx];
-      if(!isValuePresent(val)) return;
+      if(!isValuePresentV35(val)) return;
+      if(val === NA_SENTINEL) return;  // skip — no real text to check
       var probe = (val + "").split(/\s+/).slice(0, 5).join(" ");
       var normProbe = normalizeForSearch(probe);
       if(normProbe.length < 4) return;
@@ -947,28 +989,28 @@ function validateRow(row, rawPdfText){
   }
 
   var gi = HEADERS.indexOf("Generated Date");
-  if(isValuePresent(row[gi]) && !/^\d{1,2}-[A-Za-z]{3}-\d{4}$/.test(row[gi])){
+  if(isValuePresentV35(row[gi]) && row[gi] !== NA_SENTINEL && !/^\d{1,2}-[A-Za-z]{3}-\d{4}$/.test(row[gi])){
     issues.push("Invalid format: Generated Date → " + row[gi]);
     if(warnFields.indexOf("Generated Date") === -1) warnFields.push("Generated Date");
   }
   var bgi = HEADERS.indexOf("Buyer GSTIN");
-  if(isValuePresent(row[bgi]) && !/^\d{2}[A-Z][A-Z0-9]{12}$/.test(row[bgi])){
+  if(isValuePresentV35(row[bgi]) && row[bgi] !== NA_SENTINEL && !/^\d{2}[A-Z][A-Z0-9]{12}$/.test(row[bgi])){
     issues.push("Invalid GSTIN format: Buyer GSTIN → " + row[bgi]);
     if(warnFields.indexOf("Buyer GSTIN") === -1) warnFields.push("Buyer GSTIN");
   }
   var sgi = HEADERS.indexOf("Seller GSTIN");
-  if(isValuePresent(row[sgi]) && !/^\d{2}[A-Z][A-Z0-9]{12}$/.test(row[sgi])){
+  if(isValuePresentV35(row[sgi]) && row[sgi] !== NA_SENTINEL && !/^\d{2}[A-Z][A-Z0-9]{12}$/.test(row[sgi])){
     issues.push("Invalid GSTIN format: Seller GSTIN → " + row[sgi]);
     if(warnFields.indexOf("Seller GSTIN") === -1) warnFields.push("Seller GSTIN");
   }
   var qi = HEADERS.indexOf("Ordered Quantity");
-  if(isValuePresent(row[qi]) && !/\d+\s*packet/i.test(row[qi])){
+  if(isValuePresentV35(row[qi]) && row[qi] !== NA_SENTINEL && !/\d+\s*packet/i.test(row[qi])){
     issues.push("Invalid format: Ordered Quantity → " + row[qi]);
     if(warnFields.indexOf("Ordered Quantity") === -1) warnFields.push("Ordered Quantity");
   }
   ["Unit Price", "Price (Inclusive of All Duties & Taxes) – INR"].forEach(function(h){
     var i2 = HEADERS.indexOf(h);
-    if(isValuePresent(row[i2])){
+    if(isValuePresentV35(row[i2]) && row[i2] !== NA_SENTINEL){
       var num = parseFloat((row[i2] + "").replace(/,/g, ""));
       if(isNaN(num)){
         issues.push("Not numeric: " + h + " → " + row[i2]);
@@ -979,7 +1021,8 @@ function validateRow(row, rawPdfText){
 
   var ui = HEADERS.indexOf("Unit Price");
   var ti = HEADERS.indexOf("Price (Inclusive of All Duties & Taxes) – INR");
-  if(isValuePresent(row[qi]) && isValuePresent(row[ui]) && isValuePresent(row[ti])){
+  if(isValuePresentV35(row[qi]) && isValuePresentV35(row[ui]) && isValuePresentV35(row[ti])
+     && row[qi] !== NA_SENTINEL && row[ui] !== NA_SENTINEL && row[ti] !== NA_SENTINEL){
     var qtyNum = parseFloat((row[qi] + "").replace(/[^\d.]/g, ""));
     var unitNum = parseFloat((row[ui] + "").replace(/,/g, ""));
     var totalNum = parseFloat((row[ti] + "").replace(/,/g, ""));
@@ -996,12 +1039,11 @@ function validateRow(row, rawPdfText){
   var badge = "ok";
   if(issues.length >= 3) badge = "bad";
   else if(issues.length > 0) badge = "warn";
-
   return { issues: issues, badge: badge, warnFields: warnFields };
 }
 
 /* ============================================================================
-   MAIN EXTRACT (per PDF, returns row)
+   MAIN EXTRACT — v35
    ============================================================================ */
 function extractFields(text, filename){
   var found = {};
@@ -1033,12 +1075,10 @@ function extractFields(text, filename){
 
   set("Buyer Designation", readInlineValue(buyerBlock, /Designation\s*:\s*/i));
 
+  /* ★ v35: contact numbers — preserve NA sentinel */
   {
-    var vc = readInlineValue(buyerBlock, /Contact\s*No\.?\s*:\s*/i, { stripTrailingDash: true });
-    if(!vc){
-      vc = readLabelValue(buyerBlock, /Contact\s*No\.?\s*:\s*/i, { maxLines: 1 });
-      vc = vc.replace(/[-]+$/,"").trim();
-    }
+    var rawContact = readInlineValue(buyerBlock, /Contact\s*No\.?\s*:\s*/i);
+    var vc = normalizeContactValue(rawContact);
     set("Buyer Contact No", vc);
   }
 
@@ -1063,12 +1103,10 @@ function extractFields(text, filename){
     set("Seller Address", vsa);
   }
 
+  /* ★ v35: seller contact — preserve NA sentinel */
   {
-    var vsc = readInlineValue(sellerBlock, /Contact\s*No\.?\s*:\s*/i, { stripTrailingDash: true });
-    if(!vsc){
-      vsc = readLabelValue(sellerBlock, /Contact\s*No\.?\s*:\s*/i, { maxLines: 1 });
-      vsc = vsc.replace(/[-]+$/,"").trim();
-    }
+    var rawSellerContact = readInlineValue(sellerBlock, /Contact\s*No\.?\s*:\s*/i);
+    var vsc = normalizeContactValue(rawSellerContact);
     if(!vsc){
       var m2 = sellerBlock.match(/\b(0?[6-9]\d{9}|\d{11})\b/);
       if(m2) vsc = m2[1];
@@ -1094,15 +1132,34 @@ function extractFields(text, filename){
   }};
 }
 
-/* ============================================================================
-   YIELD HELPER — let UI breathe
-   ============================================================================ */
+/* ★ v35: normalize a contact value — collapse NA-style inputs to the sentinel
+   Also handles trailing dash like "01951-350334-". */
+function normalizeContactValue(raw){
+  if(raw === null || raw === undefined) return "";
+  var t = (raw + "").trim();
+  if(!t) return "";
+  // If it's just a sentinel → return sentinel
+  var sentinel = detectNaSentinel(t);
+  if(sentinel) return sentinel;
+  // Otherwise strip trailing dash and return
+  return t.replace(/[-]+$/, "").trim();
+}
+
 function yieldToUI(){
   return new Promise(function(resolve){ setTimeout(resolve, 0); });
 }
 
+function simpleHash(s){
+  var h = 0;
+  var n = Math.min(s.length, 4000);
+  for(var i=0;i<n;i++){
+    h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  }
+  return h;
+}
+
 /* ============================================================================
-   EXTRACT ALL — main loop
+   EXTRACT ALL
    ============================================================================ */
 extractBtn.addEventListener('click', async function(){
   if(isExtracting) return;
@@ -1112,128 +1169,125 @@ extractBtn.addEventListener('click', async function(){
   cancelBtn.disabled = false;
   progressBox.style.display = "block";
 
-  // Ensure workbook exists
-  if(!workbook){
-    workbook = XLSX.utils.book_new();
-    worksheet = aoaToSheet([HEADERS]);
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-  }
-  rebuildKnownFilenames();
+  try {
+    if(!workbook){
+      workbook = XLSX.utils.book_new();
+      worksheet = aoaToSheet([HEADERS]);
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+    }
+    rebuildKnownFilenames();
 
-  var queued = await dbGetAll(STORE_QUEUE);
-  if(queued.length === 0){
-    log('Queue is empty. Add PDFs first.');
+    var queued = await dbGetAll(STORE_QUEUE);
+    if(queued.length === 0){
+      log('Queue is empty. Add PDFs first.');
+      return;
+    }
+
+    log('Starting extraction of ' + queued.length + ' file(s)…');
+    statusTag.textContent = "Extracting…";
+
+    var startTime = Date.now();
+    var done = 0;
+    var errors = 0;
+
+    for(var i=0;i<queued.length;i++){
+      if(cancelRequested){
+        log('⏹ Cancelled at ' + done + ' / ' + queued.length);
+        break;
+      }
+      var item = queued[i];
+      progCurrent.textContent = item.filename;
+
+      try{
+        var text = await readPdfTextFromBuffer(item.buffer);
+        rawTextEl.textContent = text.slice(0, 20000);
+
+        var res = extractFields(text, item.filename);
+        var isDup = knownFilenames.has(item.filename.toLowerCase());
+
+        var validation = validateRow(res.row, text);
+        res.found = res.found || {};
+        res.found["One actual sample PDF"] = item.filename;
+
+        await dbAdd(STORE_ROWS, {
+          filename: item.filename,
+          row: res.row,
+          found: res.found,
+          isDuplicate: isDup,
+          skip: isDup,
+          validation: validation,
+          debug: res.debug,
+          firstText: text.slice(0, 800),
+          textHash: simpleHash(text),
+          extractedAt: Date.now()
+        });
+
+        debugBlocksEl.textContent =
+          "===== GSTIN LABELS =====\n" +
+          (res.debug.gstinLabels || []).map(function(l,idx){
+            var sentinel = l.naMarker ? " [NA]" : "";
+            return (idx+1) + ". [" + l.section + "] value=[" + (l.value || "(blank)") + "]" + sentinel;
+          }).join("\n") +
+          "\n\n===== RESOLVED =====\n" +
+          "Buyer GSTIN:  '" + res.debug.resolved.buyerGstin + "'\n" +
+          "Seller GSTIN: '" + res.debug.resolved.sellerGstin + "'\n\n" +
+          "===== TABLE ROW =====\n" + JSON.stringify(res.debug.tableRow);
+
+        done++;
+        if(isDup) log('⚠ Duplicate: ' + item.filename);
+      }catch(err){
+        errors++;
+        await dbAdd(STORE_ROWS, {
+          filename: item.filename,
+          row: HEADERS.map(function(){ return ""; }),
+          found: {},
+          isDuplicate: false,
+          skip: true,
+          error: err.message,
+          validation: { issues: ["Extraction error: " + err.message], badge: "bad", warnFields: HEADERS.slice() },
+          extractedAt: Date.now()
+        });
+        log('ERROR ' + item.filename + ': ' + err.message);
+      }
+
+      await dbDelete(STORE_QUEUE, item.id);
+
+      var pct = Math.round(((i+1) / queued.length) * 100);
+      progressBar.style.width = pct + '%';
+      progressText.textContent = (i+1) + ' / ' + queued.length + ' (' + pct + '%)';
+      var elapsed = (Date.now() - startTime) / 1000;
+      var rate = elapsed > 0 ? ((i+1) / elapsed) : 0;
+      progRate.textContent = rate.toFixed(2) + ' /s';
+      var remaining = queued.length - (i+1);
+      if(rate > 0){
+        var eta = remaining / rate;
+        progEta.textContent = eta > 60 ? Math.round(eta/60) + ' min' : Math.round(eta) + ' s';
+      }
+
+      await yieldToUI();
+      invalidateRowCache();
+
+      if((i+1) % 10 === 0){
+        jobStats.extracted = await dbCount(STORE_ROWS);
+        statExtracted.textContent = jobStats.extracted;
+        statQueued.textContent = queued.length - (i+1);
+      }
+    }
+
+    statusTag.textContent = cancelRequested ? "Cancelled" : "Review pending";
+    confirmBtn.disabled = false;
+    log('Done. ' + done + ' extracted, ' + errors + ' errors.');
+  } catch(fatalErr){
+    log('FATAL: ' + fatalErr.message);
+    var box = document.getElementById('errBox');
+    if(box){ box.style.display='block'; box.textContent = 'Extraction halted: ' + fatalErr.message; }
+  } finally {
     isExtracting = false;
     extractBtn.disabled = false;
     cancelBtn.disabled = true;
-    progressBox.style.display = "none";
-    return;
+    currentPage = 1;
+    await refreshQueueView();
   }
-
-  log('Starting extraction of ' + queued.length + ' file(s)…');
-  statusTag.textContent = "Extracting…";
-
-  var startTime = Date.now();
-  var done = 0;
-  var errors = 0;
-
-  for(var i=0;i<queued.length;i++){
-    if(cancelRequested){
-      log('⏹ Cancelled at ' + done + ' / ' + queued.length);
-      break;
-    }
-    var item = queued[i];
-    progCurrent.textContent = item.filename;
-
-    try{
-      var text = await readPdfTextFromBuffer(item.buffer);
-      rawTextEl.textContent = text.slice(0, 20000);
-
-      var res = extractFields(text, item.filename);
-      var isDup = knownFilenames.has(item.filename.toLowerCase());
-
-      // Validate BEFORE discarding text
-      var validation = validateRow(res.row, text);
-      res.found = res.found || {};
-      res.found["One actual sample PDF"] = item.filename;
-
-      // ★ Discard rawText → store only validation result + row + found
-      await dbAdd(STORE_ROWS, {
-        filename: item.filename,
-        row: res.row,
-        found: res.found,
-        isDuplicate: isDup,
-        skip: isDup,
-        validation: validation,
-        debug: res.debug,
-        extractedAt: Date.now()
-      });
-
-      debugBlocksEl.textContent =
-        "===== GSTIN LABELS =====\n" +
-        (res.debug.gstinLabels || []).map(function(l,idx){
-          return (idx+1) + ". [" + l.section + "] value=[" + (l.value || "(blank)") + "]";
-        }).join("\n") +
-        "\n\n===== RESOLVED =====\n" +
-        "Buyer GSTIN:  '" + res.debug.resolved.buyerGstin + "'\n" +
-        "Seller GSTIN: '" + res.debug.resolved.sellerGstin + "'\n\n" +
-        "===== TABLE ROW =====\n" + JSON.stringify(res.debug.tableRow);
-
-      done++;
-      if(isDup) log('⚠ Duplicate: ' + item.filename);
-    }catch(err){
-      errors++;
-      await dbAdd(STORE_ROWS, {
-        filename: item.filename,
-        row: HEADERS.map(function(){ return ""; }),
-        found: {},
-        isDuplicate: false,
-        skip: true,
-        error: err.message,
-        validation: { issues: ["Extraction error: " + err.message], badge: "bad", warnFields: HEADERS.slice() },
-        extractedAt: Date.now()
-      });
-      log('ERROR ' + item.filename + ': ' + err.message);
-    }
-
-    // Remove from queue
-    await dbDelete(STORE_QUEUE, item.id);
-
-    // Progress
-    var pct = Math.round(((i+1) / queued.length) * 100);
-    progressBar.style.width = pct + '%';
-    progressText.textContent = (i+1) + ' / ' + queued.length + ' (' + pct + '%)';
-    var elapsed = (Date.now() - startTime) / 1000;
-    var rate = elapsed > 0 ? ((i+1) / elapsed) : 0;
-    progRate.textContent = rate.toFixed(2) + ' /s';
-    var remaining = queued.length - (i+1);
-    if(rate > 0){
-      var eta = remaining / rate;
-      progEta.textContent = eta > 60 ? Math.round(eta/60) + ' min' : Math.round(eta) + ' s';
-    }
-
-    // Yield every file to keep UI alive
-    await yieldToUI();
-
-    // Refresh stat counters every 10 files
-    if((i+1) % 10 === 0){
-      jobStats.extracted = await dbCount(STORE_ROWS);
-      statExtracted.textContent = jobStats.extracted;
-      statQueued.textContent = queued.length - (i+1);
-    }
-  }
-
-  isExtracting = false;
-  extractBtn.disabled = false;
-  cancelBtn.disabled = true;
-  statusTag.textContent = cancelRequested ? "Cancelled" : "Review pending";
-  confirmBtn.disabled = false;
-
-  // Force refresh of queue/stats/review
-  await refreshQueueView();
-  currentPage = 1;
-  await renderReview();
-  log('Done. ' + done + ' extracted, ' + errors + ' errors.');
 });
 
 cancelBtn.addEventListener('click', function(){
@@ -1242,10 +1296,10 @@ cancelBtn.addEventListener('click', function(){
 });
 
 /* ============================================================================
-   REVIEW — paginated
+   RENDER REVIEW
    ============================================================================ */
 async function renderReview(){
-  var allRows = await dbGetAll(STORE_ROWS);
+  var allRows = await getRowsCached();
   if(allRows.length === 0){
     reviewArea.innerHTML = "<em>No data yet. Queue PDFs and click 'Extract All Queued'.</em>";
     pageNumEl.textContent = "1";
@@ -1255,7 +1309,6 @@ async function renderReview(){
     return;
   }
 
-  // Apply filter
   var filtered = allRows;
   if(currentFilter){
     var f = currentFilter.toLowerCase();
@@ -1281,7 +1334,6 @@ async function renderReview(){
 
   reviewArea.innerHTML = '';
 
-  // Summary of issues (page-level)
   var pageIssues = 0;
   pageRows.forEach(function(r){
     if(r.validation && r.validation.issues) pageIssues += r.validation.issues.length;
@@ -1344,11 +1396,11 @@ async function renderReview(){
       inp.addEventListener('input', async function(e){
         pr.row[i] = e.target.value;
         pr.found[h] = e.target.value;
-        // Re-validate WITHOUT rawText (fast path) — stored validation already used rawText
-        var v = validateRow(pr.row, null);
+        var v = validateRow(pr.row, pr.firstText || null);
         pr.validation = v;
         await dbPut(STORE_ROWS, pr);
-        // Update badge + label styling inline
+        invalidateRowCache();
+
         var h4 = card.querySelector('h4');
         var oldBadge = h4.querySelector('.validation-badge');
         var newVal = '';
@@ -1388,13 +1440,13 @@ async function renderReview(){
       skipCheck.addEventListener('change', async function(e){
         pr.skip = e.target.checked;
         await dbPut(STORE_ROWS, pr);
+        invalidateRowCache();
       });
     }
 
     reviewArea.appendChild(card);
   });
 
-  // Full summary (all rows, not just page) — collapsible
   var allIssues = allRows.reduce(function(acc, r){
     if(r.validation && r.validation.issues && r.validation.issues.length) acc.push(r);
     return acc;
@@ -1421,15 +1473,10 @@ async function renderReview(){
 }
 
 /* ============================================================================
-   PAGER EVENTS
+   PAGER
    ============================================================================ */
-prevPageBtn.addEventListener('click', function(){
-  if(currentPage > 1){ currentPage--; renderReview(); }
-});
-nextPageBtn.addEventListener('click', function(){
-  currentPage++;
-  renderReview();
-});
+prevPageBtn.addEventListener('click', function(){ if(currentPage > 1){ currentPage--; renderReview(); } });
+nextPageBtn.addEventListener('click', function(){ currentPage++; renderReview(); });
 pageJumpBtn.addEventListener('click', function(){
   var n = parseInt(pageJump.value, 10);
   if(!isNaN(n) && n > 0){ currentPage = n; renderReview(); }
@@ -1473,10 +1520,10 @@ document.getElementById('learnedBtn').addEventListener('click', function(){
 });
 
 /* ============================================================================
-   CONFIRM & APPEND — streaming from IndexedDB
+   CONFIRM & APPEND
    ============================================================================ */
 confirmBtn.addEventListener('click', async function(){
-  if(!worksheet) {
+  if(!worksheet){
     alert("No master sheet loaded. Load one or extract first.");
     return;
   }
@@ -1505,15 +1552,12 @@ confirmBtn.addEventListener('click', async function(){
   confirmBtn.disabled = true;
   downloadBtn.disabled = false;
 
-  // Clear rows from IndexedDB after append to free space
   await dbClear(STORE_ROWS);
+  invalidateRowCache();
   await refreshQueueView();
   log('Appended ' + appended + ' row(s), skipped ' + skipped + '. Rows cleared from job store.');
 });
 
-/* ============================================================================
-   DOWNLOAD
-   ============================================================================ */
 downloadBtn.addEventListener('click', function(){
   if(!workbook) return;
   var wbout = XLSX.write(workbook, {bookType:'xlsx', type:'array'});
@@ -1526,13 +1570,11 @@ downloadBtn.addEventListener('click', function(){
   log('Downloaded GeM_Master_updated.xlsx');
 });
 
-/* ============================================================================
-   RESET
-   ============================================================================ */
 document.getElementById('clearBtn').addEventListener('click', async function(){
   if(!confirm("This clears the queue, extracted rows, and loaded master. Continue?")) return;
   await dbClear(STORE_QUEUE);
   await dbClear(STORE_ROWS);
+  invalidateRowCache();
   workbook = null; worksheet = null;
   knownFilenames = new Set();
   currentPage = 1; currentFilter = "";
@@ -1556,9 +1598,6 @@ document.getElementById('clearBtn').addEventListener('click', async function(){
   log('Reset. All job data cleared.');
 });
 
-/* ============================================================================
-   ESCAPE HELPER
-   ============================================================================ */
 function escapeHtml(s){
   return (s + "")
     .replace(/&/g, "&amp;")
@@ -1569,7 +1608,7 @@ function escapeHtml(s){
 }
 
 /* ============================================================================
-   RESUME DETECTION ON LOAD
+   RESUME
    ============================================================================ */
 async function checkResume(){
   try{
@@ -1587,6 +1626,7 @@ async function checkResume(){
 
 resumeBtn.addEventListener('click', async function(){
   resumeBanner.classList.remove('visible');
+  invalidateRowCache();
   await refreshQueueView();
   currentPage = 1;
   await renderReview();
@@ -1599,6 +1639,7 @@ discardBtn.addEventListener('click', async function(){
   if(!confirm("Discard all queued files and extracted rows?")) return;
   await dbClear(STORE_QUEUE);
   await dbClear(STORE_ROWS);
+  invalidateRowCache();
   resumeBanner.classList.remove('visible');
   await refreshQueueView();
   log('Previous job discarded.');
