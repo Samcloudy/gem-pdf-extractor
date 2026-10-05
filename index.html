@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GeM PDF → Excel Extractor v32</title>
+<title>GeM PDF → Excel Extractor v33</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -18,19 +18,20 @@
   button.secondary { background: #6c757d; }
   button.success { background: #198754; }
   button.warn { background: #fd7e14; }
+  button.danger { background: #dc3545; }
   button.tiny { padding: 4px 8px; font-size: 12px; }
   table { border-collapse: collapse; width: 100%; font-size: 12px; }
   th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left; vertical-align: top; word-break: break-word; }
   th { background: #eee; position: sticky; top: 0; }
-  .log { font-family: monospace; font-size: 11px; background: #111; color: #0f0; padding: 8px; border-radius: 6px; height: 140px; overflow: auto; white-space: pre-wrap; }
-  .log2 { font-family: monospace; font-size: 11px; background: #fffbe6; color: #333; padding: 8px; border-radius: 6px; height: 300px; overflow: auto; white-space: pre-wrap; border: 2px solid #f0c000; }
+  .log { font-family: monospace; font-size: 11px; background: #111; color: #0f0; padding: 8px; border-radius: 6px; height: 160px; overflow: auto; white-space: pre-wrap; }
+  .log2 { font-family: monospace; font-size: 11px; background: #fffbe6; color: #333; padding: 8px; border-radius: 6px; height: 260px; overflow: auto; white-space: pre-wrap; border: 2px solid #f0c000; }
   .row-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .tag { display: inline-block; background: #e7f1ff; color: #0b6efd; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
   .badge { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 11px; }
   .badge-ok { background: #d1e7dd; color: #0a7d2c; }
   .badge-miss { background: #f8d7da; color: #c00; }
   .badge-dup { background: #fff3cd; color: #8a6300; }
-  .queue { max-height: 140px; overflow: auto; font-size: 12px; border: 1px solid #eee; padding: 6px; border-radius: 4px; background: #fff; }
+  .queue { max-height: 180px; overflow: auto; font-size: 12px; border: 1px solid #eee; padding: 6px; border-radius: 4px; background: #fff; }
   input[type="text"] { padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 100%; font-size: 13px; }
   input[type="file"] { font-size: 13px; max-width: 100%; }
   .review-card { border: 1px solid #ccc; border-radius: 6px; padding: 10px; margin-bottom: 10px; background: #fff; }
@@ -44,54 +45,34 @@
   .err { background:#f8d7da; color:#842029; padding:8px 12px; border-radius:6px; font-size:13px; margin-bottom:10px; display:none; }
   .banner { background:#cfe2ff; color:#084298; padding:10px 14px; border-radius:6px; font-size:14px; font-weight:bold; margin-bottom:12px; border:2px solid #0b6efd; }
 
-  /* ============ v32 Validation Badge Styles ============ */
-  .validation-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: help;
-    position: relative;
-  }
+  /* Progress bar */
+  .progress-wrap { background: #e9ecef; border-radius: 6px; height: 22px; overflow: hidden; position: relative; margin-top: 8px; }
+  .progress-bar { height: 100%; background: linear-gradient(90deg,#0b6efd,#198754); width: 0%; transition: width .2s; }
+  .progress-text { position: absolute; inset: 0; text-align: center; font-size: 12px; line-height: 22px; color: #000; font-weight: 600; }
+  .stats-row { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; margin-top: 6px; }
+  .stats-row span b { color: #0b6efd; }
+
+  /* Pagination */
+  .pager { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; font-size: 13px; }
+  .pager button { padding: 6px 12px; }
+  .pager input[type="text"] { width: 80px; }
+
+  /* Validation badges */
+  .validation-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; cursor: help; position: relative; }
   .validation-badge.ok   { background: #d1e7dd; color: #0a7d2c; }
   .validation-badge.warn { background: #fff3cd; color: #8a6300; }
   .validation-badge.bad  { background: #f8d7da; color: #c00; }
   .validation-badge .tooltip-text {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    margin-top: 6px;
-    background: #1a1a1a;
-    color: #fff;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 400;
-    z-index: 999;
-    min-width: 260px;
-    max-width: 480px;
-    white-space: normal;
-    text-align: left;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    line-height: 1.5;
+    display: none; position: absolute; top: 100%; left: 0; margin-top: 6px;
+    background: #1a1a1a; color: #fff; padding: 8px 12px; border-radius: 6px;
+    font-size: 12px; font-weight: 400; z-index: 999; min-width: 260px; max-width: 480px;
+    white-space: normal; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.2); line-height: 1.5;
   }
   .validation-badge:hover .tooltip-text { display: block; }
   .validation-badge .tooltip-text li { margin: 3px 0; }
   .validation-badge .tooltip-text ul { padding-left: 18px; margin: 4px 0; }
 
-  /* ============ v32 Summary Panel Styles ============ */
-  .validation-summary {
-    background: #fff3cd;
-    border: 2px solid #f0c000;
-    border-radius: 6px;
-    padding: 10px 14px;
-    margin-top: 12px;
-    font-size: 13px;
-    color: #8a6300;
-    cursor: pointer;
-  }
+  .validation-summary { background: #fff3cd; border: 2px solid #f0c000; border-radius: 6px; padding: 10px 14px; margin-top: 12px; font-size: 13px; color: #8a6300; cursor: pointer; }
   .validation-summary.bad { background: #f8d7da; border-color: #dc3545; color: #842029; }
   .validation-summary:hover { background: #ffe69c; }
   .validation-summary.bad:hover { background: #f5c2c7; }
@@ -99,6 +80,11 @@
   .validation-summary-detail { display: none; margin-top: 10px; font-size: 12px; color: #333; }
   .validation-summary.expanded .validation-summary-detail { display: block; }
   .validation-summary-detail ul { margin: 4px 0; padding-left: 20px; }
+
+  /* Job resume banner */
+  .resume-banner { background: #fff3cd; border: 2px solid #f0c000; color: #8a6300; padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; display: none; }
+  .resume-banner.visible { display: block; }
+  .resume-banner button { margin-left: 8px; }
 
   @media (max-width: 700px) {
     body { padding: 0 8px; }
@@ -109,49 +95,88 @@
     .row-actions button { flex: 1 1 100%; }
     th, td { font-size: 11px; padding: 4px 5px; }
     .log, .log2 { height: 110px; font-size: 10px; }
-    .validation-badge .tooltip-text {
-      left: auto; right: 0; max-width: 90vw;
-    }
+    .validation-badge .tooltip-text { left: auto; right: 0; max-width: 90vw; }
   }
 </style>
 </head>
 <body>
 
-<div class="banner">✅ v32 LOADED — Silent validation: bad rows get ⚠/❌ badges, problem fields get red underline</div>
+<div class="banner">✅ v33 LOADED — Desktop-grade · resumable · paginated review · handles 1 → 10,000+ PDFs</div>
 
-<h1>GeM PDF → Excel Extractor <span class="tag">v32</span></h1>
-<div class="sub">Extract GeM contract PDFs → append to master Excel · mobile-ready · learns seller layouts · skips duplicates</div>
+<h1>GeM PDF → Excel Extractor <span class="tag">v33</span></h1>
+<div class="sub">Extract GeM contract PDFs → append to master Excel · IndexedDB-backed queue · resumable · skips duplicates · learns seller layouts</div>
 
 <div class="err" id="errBox"></div>
 
+<!-- Resume banner -->
+<div class="resume-banner" id="resumeBanner">
+  <b>⏸ Previous job found.</b>
+  <span id="resumeStats"></span>
+  <button class="success tiny" id="resumeBtn">Resume</button>
+  <button class="danger tiny" id="discardBtn">Discard job</button>
+</div>
+
+<!-- Step 1: Master -->
 <div class="box">
   <h3>Step 1 — Load your existing Master sheet (optional)</h3>
   <input type="file" id="masterFile" accept=".xlsx,.xls" />
   <div style="font-size:11px;color:#666;margin-top:6px;">Loaded: <span id="masterStatus">none</span> · Rows: <span id="masterRows">0</span></div>
 </div>
 
+<!-- Step 2: PDFs -->
 <div class="box">
-  <h3>Step 2 — Select 1 to 10+ GeM contract PDFs</h3>
+  <h3>Step 2 — Add GeM contract PDFs (in chunks — queue persists)</h3>
   <input type="file" id="pdfFiles" accept="application/pdf,application/x-pdf,.pdf" multiple />
-  <div class="queue" id="queueList" style="margin-top:8px;">No files selected.</div>
+  <div style="font-size:11px;color:#666;margin-top:6px;">
+    Tip: You can add files in multiple batches (e.g. 500 at a time). Queue survives refresh.
+  </div>
+  <div class="queue" id="queueList" style="margin-top:8px;">No files queued.</div>
+  <div class="stats-row">
+    <span>Queued: <b id="statQueued">0</b></span>
+    <span>Extracted: <b id="statExtracted">0</b></span>
+    <span>Skipped: <b id="statSkipped">0</b></span>
+    <span>Errors: <b id="statErrors">0</b></span>
+  </div>
 </div>
 
+<!-- Action buttons -->
 <div class="box row-actions">
-  <button id="extractBtn">1. Extract All</button>
+  <button id="extractBtn">1. Extract All Queued</button>
+  <button id="cancelBtn" class="danger" disabled>Cancel</button>
   <button id="confirmBtn" class="success" disabled>2. Confirm &amp; Append</button>
-  <button id="downloadBtn" disabled>3. Download Updated Excel</button>
-  <button id="clearBtn" class="secondary">Reset</button>
+  <button id="downloadBtn" disabled>3. Download Excel</button>
+  <button id="clearBtn" class="secondary">Reset All</button>
   <button id="learnedBtn" class="warn tiny">🧠 Manage Learned</button>
   <span class="tag" id="statusTag">Idle</span>
 </div>
 
-<div class="box">
-  <h3>Review (edit any cell · click 🧠 to remember this seller)</h3>
-  <div id="reviewArea" style="max-height:560px; overflow:auto;">
-    <em>No data yet. Click "Extract All".</em>
+<!-- Progress -->
+<div class="box" id="progressBox" style="display:none;">
+  <h3>⏳ Extraction progress</h3>
+  <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div><div class="progress-text" id="progressText">0 / 0</div></div>
+  <div class="stats-row">
+    <span>Current: <b id="progCurrent">—</b></span>
+    <span>Rate: <b id="progRate">—</b></span>
+    <span>ETA: <b id="progEta">—</b></span>
   </div>
 </div>
 
+<!-- Review (paginated) -->
+<div class="box">
+  <h3>Review — paginated (edits auto-save to IndexedDB)</h3>
+  <div class="pager">
+    <button id="prevPageBtn" class="secondary tiny" disabled>◀ Prev</button>
+    <span>Page <b id="pageNum">1</b> / <b id="pageTotal">1</b></span>
+    <button id="nextPageBtn" class="secondary tiny" disabled>Next ▶</button>
+    <input type="text" id="pageJump" placeholder="Go to page" />
+    <button id="pageJumpBtn" class="secondary tiny">Go</button>
+    <input type="text" id="filterBox" placeholder="Filter by filename or seller…" style="max-width:280px;" />
+    <button id="filterClearBtn" class="secondary tiny">Clear filter</button>
+  </div>
+  <div id="reviewArea"><em>No data yet. Queue PDFs and click "Extract All Queued".</em></div>
+</div>
+
+<!-- Master preview -->
 <div class="box">
   <h3>Master preview (already-saved rows)</h3>
   <div class="table-wrap" style="max-height: 240px; overflow: auto;">
@@ -159,6 +184,7 @@
   </div>
 </div>
 
+<!-- Debug -->
 <div class="box">
   <h3>🔍 Debug — extraction trace (last PDF)</h3>
   <div class="log2" id="debugBlocks">No data yet.</div>
@@ -177,6 +203,9 @@
 <div class="footer-note">All processing happens on your device. No data is uploaded anywhere.</div>
 
 <script>
+/* ============================================================================
+   GLOBAL ERROR HANDLERS
+   ============================================================================ */
 window.addEventListener('error', function(e){
   var box = document.getElementById('errBox');
   if(box){ box.style.display='block'; box.textContent = 'JS Error: ' + (e.message || e.error || 'unknown'); }
@@ -186,6 +215,9 @@ window.addEventListener('unhandledrejection', function(e){
   if(box){ box.style.display='block'; box.textContent = 'Async Error: ' + (e.reason && e.reason.message ? e.reason.message : e.reason); }
 });
 
+/* ============================================================================
+   CONSTANTS
+   ============================================================================ */
 var HEADERS = [
   "Generated Date",
   "Buyer GSTIN",
@@ -203,7 +235,15 @@ var HEADERS = [
   "One actual sample PDF"
 ];
 var LS_LEARNED = "gem_learned_patterns_v24";
+var DB_NAME = "gem_extractor_v33";
+var DB_VERSION = 1;
+var STORE_QUEUE = "queue";     // queued files (not yet extracted)
+var STORE_ROWS  = "rows";      // extracted rows
+var REVIEW_PAGE_SIZE = 20;     // rows per review page
 
+/* ============================================================================
+   DOM REFS
+   ============================================================================ */
 var logEl = document.getElementById('log');
 var rawTextEl = document.getElementById('rawText');
 var debugBlocksEl = document.getElementById('debugBlocks');
@@ -214,33 +254,176 @@ var reviewArea = document.getElementById('reviewArea');
 var queueList = document.getElementById('queueList');
 var downloadBtn = document.getElementById('downloadBtn');
 var confirmBtn = document.getElementById('confirmBtn');
+var extractBtn = document.getElementById('extractBtn');
+var cancelBtn = document.getElementById('cancelBtn');
 var masterStatus = document.getElementById('masterStatus');
 var masterRows = document.getElementById('masterRows');
 var pdfInput = document.getElementById('pdfFiles');
 var masterInput = document.getElementById('masterFile');
+var progressBox = document.getElementById('progressBox');
+var progressBar = document.getElementById('progressBar');
+var progressText = document.getElementById('progressText');
+var progCurrent = document.getElementById('progCurrent');
+var progRate = document.getElementById('progRate');
+var progEta = document.getElementById('progEta');
+var statQueued = document.getElementById('statQueued');
+var statExtracted = document.getElementById('statExtracted');
+var statSkipped = document.getElementById('statSkipped');
+var statErrors = document.getElementById('statErrors');
+var pageNumEl = document.getElementById('pageNum');
+var pageTotalEl = document.getElementById('pageTotal');
+var prevPageBtn = document.getElementById('prevPageBtn');
+var nextPageBtn = document.getElementById('nextPageBtn');
+var pageJump = document.getElementById('pageJump');
+var pageJumpBtn = document.getElementById('pageJumpBtn');
+var filterBox = document.getElementById('filterBox');
+var filterClearBtn = document.getElementById('filterClearBtn');
+var resumeBanner = document.getElementById('resumeBanner');
+var resumeStats = document.getElementById('resumeStats');
+var resumeBtn = document.getElementById('resumeBtn');
+var discardBtn = document.getElementById('discardBtn');
 
-var workbook = null, worksheet = null, pendingRows = [];
+/* ============================================================================
+   STATE
+   ============================================================================ */
+var workbook = null, worksheet = null;
 var knownFilenames = new Set();
+var currentPage = 1;
+var currentFilter = "";
+var cancelRequested = false;
+var isExtracting = false;
+var jobStats = { queued: 0, extracted: 0, skipped: 0, errors: 0 };
 
+/* ============================================================================
+   LOG
+   ============================================================================ */
 function log(msg){
   var t = new Date().toLocaleTimeString();
   logEl.textContent += '[' + t + '] ' + msg + '\n';
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+/* ============================================================================
+   BUILD PREVIEW HEADERS
+   ============================================================================ */
 HEADERS.forEach(function(h){
   var th = document.createElement('th');
   th.textContent = h;
   previewHead.appendChild(th);
 });
 
+/* ============================================================================
+   PDF.JS SETUP
+   ============================================================================ */
 if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 }else{
   log("WARNING: pdfjsLib not loaded");
 }
 
-/* ========== Learned ========== */
+/* ============================================================================
+   INDEXEDDB WRAPPER (minimal, promise-based)
+   ============================================================================ */
+var dbPromise = null;
+function openDB(){
+  if(dbPromise) return dbPromise;
+  dbPromise = new Promise(function(resolve, reject){
+    var req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = function(e){
+      var db = e.target.result;
+      if(!db.objectStoreNames.contains(STORE_QUEUE)){
+        db.createObjectStore(STORE_QUEUE, { keyPath: "id", autoIncrement: true });
+      }
+      if(!db.objectStoreNames.contains(STORE_ROWS)){
+        db.createObjectStore(STORE_ROWS, { keyPath: "id", autoIncrement: true });
+      }
+    };
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  });
+  return dbPromise;
+}
+
+function dbAdd(store, value){
+  return openDB().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction(store, "readwrite");
+      var req = tx.objectStore(store).add(value);
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  });
+}
+
+function dbPut(store, value){
+  return openDB().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction(store, "readwrite");
+      var req = tx.objectStore(store).put(value);
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  });
+}
+
+function dbGetAll(store){
+  return openDB().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction(store, "readonly");
+      var req = tx.objectStore(store).getAll();
+      req.onsuccess = function(){ resolve(req.result || []); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  });
+}
+
+function dbGet(store, id){
+  return openDB().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction(store, "readonly");
+      var req = tx.objectStore(store).get(id);
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  });
+}
+
+function dbDelete(store, id){
+  return openDB().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction(store, "readwrite");
+      var req = tx.objectStore(store).delete(id);
+      req.onsuccess = function(){ resolve(); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  });
+}
+
+function dbClear(store){
+  return openDB().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction(store, "readwrite");
+      var req = tx.objectStore(store).clear();
+      req.onsuccess = function(){ resolve(); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  });
+}
+
+function dbCount(store){
+  return openDB().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction(store, "readonly");
+      var req = tx.objectStore(store).count();
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  });
+}
+
+/* ============================================================================
+   LEARNED PATTERNS (localStorage — small data)
+   ============================================================================ */
 function loadLearned(){ try { return JSON.parse(localStorage.getItem(LS_LEARNED) || "{}"); } catch(e){ return {}; } }
 function saveLearned(o){ localStorage.setItem(LS_LEARNED, JSON.stringify(o)); }
 function learnedKey(f){ return ((f["Seller GSTIN"] || f["Seller Company Name"] || "") + "").trim().toUpperCase(); }
@@ -251,24 +434,42 @@ function applyLearned(found){
   return found;
 }
 
-/* ========== Sheet ========== */
+/* ============================================================================
+   EXCEL HELPERS
+   ============================================================================ */
 function sheetToAOA(ws){ return XLSX.utils.sheet_to_json(ws,{header:1,defval:""}); }
 function aoaToSheet(a){ return XLSX.utils.aoa_to_sheet(a); }
+
 function renderPreviewFromSheet(){
   if(!worksheet) return;
   var aoa = sheetToAOA(worksheet);
   previewBody.innerHTML = "";
-  aoa.slice(1).forEach(function(row){
+  var rows = aoa.slice(1);
+  // Cap preview render at 200 rows to keep UI snappy on huge sheets
+  var cap = Math.min(rows.length, 200);
+  for(var i=0; i<cap; i++){
+    var row = rows[i];
     var tr = document.createElement('tr');
-    HEADERS.forEach(function(_,i){
+    HEADERS.forEach(function(_,j){
       var td = document.createElement('td');
-      td.textContent = row[i] == null ? "" : row[i];
+      td.textContent = row[j] == null ? "" : row[j];
       tr.appendChild(td);
     });
     previewBody.appendChild(tr);
-  });
-  masterRows.textContent = Math.max(0, aoa.length - 1);
+  }
+  if(rows.length > cap){
+    var tr2 = document.createElement('tr');
+    var td2 = document.createElement('td');
+    td2.colSpan = HEADERS.length;
+    td2.style.textAlign = "center";
+    td2.style.color = "#888";
+    td2.textContent = "… " + (rows.length - cap) + " more rows (not previewed)";
+    tr2.appendChild(td2);
+    previewBody.appendChild(tr2);
+  }
+  masterRows.textContent = rows.length;
 }
+
 function rebuildKnownFilenames(){
   knownFilenames = new Set();
   if(!worksheet) return;
@@ -280,6 +481,9 @@ function rebuildKnownFilenames(){
   });
 }
 
+/* ============================================================================
+   MASTER LOAD
+   ============================================================================ */
 masterInput.addEventListener('change', async function(e){
   var f = e.target.files && e.target.files[0];
   if(!f) return;
@@ -295,24 +499,71 @@ masterInput.addEventListener('change', async function(e){
   }
 });
 
-pdfInput.addEventListener('change', function(e){
+/* ============================================================================
+   QUEUE INPUT — add files to IndexedDB
+   ============================================================================ */
+pdfInput.addEventListener('change', async function(e){
   var files = e.target.files;
-  if(!files || files.length === 0){
-    queueList.textContent = "No files selected.";
-    return;
-  }
-  var names = [];
+  if(!files || files.length === 0) return;
+  log('Adding ' + files.length + ' file(s) to queue…');
+  var added = 0;
   for(var i=0;i<files.length;i++){
     var f = files[i];
-    names.push((i+1) + '. ' + f.name + ' <span class="badge badge-ok">' + Math.round(f.size/1024) + ' KB</span>');
+    try{
+      var buf = await f.arrayBuffer();
+      await dbAdd(STORE_QUEUE, {
+        filename: f.name,
+        size: f.size,
+        buffer: buf,
+        addedAt: Date.now()
+      });
+      added++;
+    }catch(err){
+      log('ERROR queueing ' + f.name + ': ' + err.message);
+    }
   }
-  queueList.innerHTML = 'Selected <b>' + files.length + '</b> file(s):<br/>' + names.join('<br/>');
-  log('Queue updated: ' + files.length + ' file(s) ready.');
+  // Reset input so same files can be re-added later
+  pdfInput.value = "";
+  log('Queued ' + added + ' file(s).');
+  await refreshQueueView();
 });
 
-async function readPdfText(file){
+async function refreshQueueView(){
+  var queued = await dbGetAll(STORE_QUEUE);
+  var extracted = await dbGetAll(STORE_ROWS);
+  jobStats.queued = queued.length;
+  jobStats.extracted = extracted.length;
+  statQueued.textContent = queued.length;
+  statExtracted.textContent = extracted.length;
+  statSkipped.textContent = extracted.filter(function(r){ return r.skip; }).length;
+  statErrors.textContent = extracted.filter(function(r){ return r.error; }).length;
+
+  if(queued.length === 0 && extracted.length === 0){
+    queueList.textContent = "No files queued.";
+    return;
+  }
+  var html = '';
+  if(queued.length > 0){
+    html += '<b>' + queued.length + ' file(s) waiting for extraction:</b><br/>';
+    var show = queued.slice(0, 50);
+    show.forEach(function(q, i){
+      html += (i+1) + '. ' + escapeHtml(q.filename) + ' <span class="badge badge-ok">' + Math.round(q.size/1024) + ' KB</span><br/>';
+    });
+    if(queued.length > 50) html += '<i>… and ' + (queued.length - 50) + ' more</i><br/>';
+  }
+  if(extracted.length > 0){
+    html += '<br/><b>' + extracted.length + ' row(s) extracted. Review below.</b>';
+  }
+  queueList.innerHTML = html;
+  await renderReview();
+}
+
+/* ============================================================================
+   PDF TEXT EXTRACTION
+   ============================================================================ */
+async function readPdfTextFromBuffer(buffer){
   if(!window.pdfjsLib) throw new Error("PDF library not loaded.");
-  var pdf = await pdfjsLib.getDocument({data: await file.arrayBuffer()}).promise;
+  var pdf = await pdfjsLib.getDocument({data: buffer}).promise;
   var out = "";
   for(var p=1;p<=pdf.numPages;p++){
     var page = await pdf.getPage(p);
@@ -326,9 +577,13 @@ async function readPdfText(file){
     if(line) out += line + "\n";
     out += "\n";
   }
+  try { pdf.destroy(); } catch(e){}
   return out;
 }
 
+/* ============================================================================
+   TEXT CLEANING
+   ============================================================================ */
 function stripHindi(s){
   if(!s) return "";
   return s
@@ -340,7 +595,6 @@ function stripHindi(s){
     .trim();
 }
 
-/* ========== Section finder ========== */
 function findSection(text, startRegex, endRegexes){
   var m = text.match(startRegex);
   if(!m) return "";
@@ -353,7 +607,6 @@ function findSection(text, startRegex, endRegexes){
   return text.slice(start, end);
 }
 
-/* ========== Junk ========== */
 var LABEL_STOP = /^(Designation|Contact\s*No|Email\s*ID|GSTIN|Address|पद|पता|संपर्क|ईमेल|जीएसटीआईएन|MSME|एमएसएमई|Role\s*:|Payment\s*Mode|GeM\s*Seller\s*ID|Company\s*Name|Financial|IFD|Product\s*Details|Consignee|Terms|Note|ePBG|Product\s*Name|Brand|Model|HSN|Country|Category|Selling|Catalogue|Ordered|Unit\s*Price|Total\s*Order|Organisation|Type\s*:|Ministry|Department|Office\s*Zone|State\s*Government)/i;
 
 function isJunkLine(l){
@@ -414,9 +667,9 @@ function readInlineValue(block, labelRegex, options){
   return stripHindi(value);
 }
 
-/* =====================================================================
+/* ============================================================================
    BUYER ADDRESS
-   ===================================================================== */
+   ============================================================================ */
 function extractBuyerAddress(text, resolvedBuyerGstin){
   var buyerBlock = findSection(text, /Buyer\s*Details/i,
     [/Financial\s*Approval|Paying\s*Authority\s*Details|Seller\s*Details/i]);
@@ -494,7 +747,9 @@ function trimAddressJunk(s){
   return s;
 }
 
-/* ========== GSTIN ========== */
+/* ============================================================================
+   GSTIN
+   ============================================================================ */
 var GSTIN_PATTERN = /[0-9]{2}[A-Z][A-Z0-9]{12}/;
 
 function isBlankish(s){
@@ -503,18 +758,6 @@ function isBlankish(s){
   if(t === "-" || t === "–" || t === "—" || t === "~") return true;
   if(/^n\/?a$/i.test(t)) return true;
   return false;
-}
-
-function findAllGstinValues(text){
-  var re = /([0-9]{2}[A-Z][A-Z0-9]{12})/g;
-  var out = [];
-  var seen = {};
-  var m;
-  while((m = re.exec(text)) !== null){
-    var v = m[1].toUpperCase();
-    if(!seen[v]){ seen[v] = true; out.push(v); }
-  }
-  return out;
 }
 
 function scanAllGstinLabels(text){
@@ -588,7 +831,9 @@ function resolveGstins(labels){
   return { sellerGstin: sellerGstin, buyerGstin: buyerGstin };
 }
 
-/* ========== PRODUCT NAME ========== */
+/* ============================================================================
+   PRODUCT NAME
+   ============================================================================ */
 var PRODUCT_LABEL_REGEX = /(?:उ\S*पाद\s*का\s*नाम\s*\|?\s*)?Product\s*Name\s*:\s*([\s\S]*?)(?=\s*(?:[|#!]*\s*(?:Brand\s*:|Brand\s*Type|Catalogue\s*Status|Selling\s*As|Category\s*Name|Model\s*:|HSN\s*Code|Country\s*Of\s*Origin)|[\u0900-\u097F]*\s*\|?\s*(?:बाड़|ब्रांड|कैटलॉग|मॉडल|श्रेणी|देश)\s*[:|]|Item\s*Description|Ordered\s*Quantity|Unit\s*Price|Total\s*Order))/i;
 
 function extractProductName(text){
@@ -606,7 +851,9 @@ function extractProductName(text){
     .trim();
 }
 
-/* ========== TABLE ROW ========== */
+/* ============================================================================
+   TABLE ROW
+   ============================================================================ */
 function extractTableRow(text){
   var result = { qty: "", unit: "", total: "" };
   var reA = /([\d,]+)\s*packet\s*([\d,.]+)\s*NA\s*([\d,]+)/i;
@@ -642,16 +889,9 @@ function extractTableRow(text){
   return result;
 }
 
-/* =====================================================================
-   ★★★ v32 VALIDATION ENGINE
-   
-   Returns: { issues: [...], badge: "ok"|"warn"|"bad", warnFields: [...] }
-   - issues: array of strings describing problems
-   - badge:  "ok" (0 issues) / "warn" (1-2) / "bad" (3+)
-   - warnFields: array of field names that should be red-underlined
-   ===================================================================== */
-
-/* Fields that MUST be present — missing = critical */
+/* ============================================================================
+   VALIDATION ENGINE (v32 logic preserved)
+   ============================================================================ */
 var CRITICAL_FIELDS = [
   "Generated Date", "Buyer GSTIN", "Seller GSTIN",
   "Buyer Address", "Seller Company Name",
@@ -679,7 +919,6 @@ function validateRow(row, rawPdfText){
   var issues = [];
   var warnFields = [];
 
-  /* -------- Check 1: field completeness -------- */
   var missingCount = 0;
   HEADERS.forEach(function(h, i){
     var val = row[i];
@@ -690,50 +929,43 @@ function validateRow(row, rawPdfText){
     }
   });
 
-  /* -------- Check 2: value presence in PDF text -------- */
-  // Only run for critical fields, only if value present
-  var pdfNorm = normalizeForSearch(rawPdfText || "");
-  CRITICAL_FIELDS.forEach(function(h){
-    var idx = HEADERS.indexOf(h);
-    if(idx < 0) return;
-    var val = row[idx];
-    if(!isValuePresent(val)) return;
-    // For long text values (address/product), check the first 5 words
-    var probe = (val + "").split(/\s+/).slice(0, 5).join(" ");
-    var normProbe = normalizeForSearch(probe);
-    if(normProbe.length < 4) return;
-    if(pdfNorm.indexOf(normProbe) === -1){
-      issues.push("Not found in PDF text: " + h + " → \"" + probe + "\"");
-      if(warnFields.indexOf(h) === -1) warnFields.push(h);
-    }
-  });
+  if(rawPdfText){
+    var pdfNorm = normalizeForSearch(rawPdfText);
+    CRITICAL_FIELDS.forEach(function(h){
+      var idx = HEADERS.indexOf(h);
+      if(idx < 0) return;
+      var val = row[idx];
+      if(!isValuePresent(val)) return;
+      var probe = (val + "").split(/\s+/).slice(0, 5).join(" ");
+      var normProbe = normalizeForSearch(probe);
+      if(normProbe.length < 4) return;
+      if(pdfNorm.indexOf(normProbe) === -1){
+        issues.push("Not found in PDF text: " + h + " → \"" + probe + "\"");
+        if(warnFields.indexOf(h) === -1) warnFields.push(h);
+      }
+    });
+  }
 
-  /* -------- Check 3: format validation -------- */
-  // Generated Date
   var gi = HEADERS.indexOf("Generated Date");
   if(isValuePresent(row[gi]) && !/^\d{1,2}-[A-Za-z]{3}-\d{4}$/.test(row[gi])){
     issues.push("Invalid format: Generated Date → " + row[gi]);
     if(warnFields.indexOf("Generated Date") === -1) warnFields.push("Generated Date");
   }
-  // Buyer GSTIN
   var bgi = HEADERS.indexOf("Buyer GSTIN");
   if(isValuePresent(row[bgi]) && !/^\d{2}[A-Z][A-Z0-9]{12}$/.test(row[bgi])){
     issues.push("Invalid GSTIN format: Buyer GSTIN → " + row[bgi]);
     if(warnFields.indexOf("Buyer GSTIN") === -1) warnFields.push("Buyer GSTIN");
   }
-  // Seller GSTIN
   var sgi = HEADERS.indexOf("Seller GSTIN");
   if(isValuePresent(row[sgi]) && !/^\d{2}[A-Z][A-Z0-9]{12}$/.test(row[sgi])){
     issues.push("Invalid GSTIN format: Seller GSTIN → " + row[sgi]);
     if(warnFields.indexOf("Seller GSTIN") === -1) warnFields.push("Seller GSTIN");
   }
-  // Ordered Quantity
   var qi = HEADERS.indexOf("Ordered Quantity");
   if(isValuePresent(row[qi]) && !/\d+\s*packet/i.test(row[qi])){
     issues.push("Invalid format: Ordered Quantity → " + row[qi]);
     if(warnFields.indexOf("Ordered Quantity") === -1) warnFields.push("Ordered Quantity");
   }
-  // Numeric fields (Unit Price, Total)
   ["Unit Price", "Price (Inclusive of All Duties & Taxes) – INR"].forEach(function(h){
     var i2 = HEADERS.indexOf(h);
     if(isValuePresent(row[i2])){
@@ -745,7 +977,6 @@ function validateRow(row, rawPdfText){
     }
   });
 
-  /* -------- Check 4: math consistency (qty × unit = total) -------- */
   var ui = HEADERS.indexOf("Unit Price");
   var ti = HEADERS.indexOf("Price (Inclusive of All Duties & Taxes) – INR");
   if(isValuePresent(row[qi]) && isValuePresent(row[ui]) && isValuePresent(row[ti])){
@@ -755,15 +986,13 @@ function validateRow(row, rawPdfText){
     if(!isNaN(qtyNum) && !isNaN(unitNum) && !isNaN(totalNum) && qtyNum > 0 && unitNum > 0){
       var expected = qtyNum * unitNum;
       var diff = Math.abs(expected - totalNum);
-      var tolerance = Math.max(1, expected * 0.02); // 2% tolerance
+      var tolerance = Math.max(1, expected * 0.02);
       if(diff > tolerance){
         issues.push("Math mismatch: " + qtyNum + " × " + unitNum + " = " + expected.toFixed(2) + ", but total = " + totalNum);
-        // Don't underline (may be intentional), just flag
       }
     }
   }
 
-  /* -------- Pick badge color -------- */
   var badge = "ok";
   if(issues.length >= 3) badge = "bad";
   else if(issues.length > 0) badge = "warn";
@@ -771,9 +1000,9 @@ function validateRow(row, rawPdfText){
   return { issues: issues, badge: badge, warnFields: warnFields };
 }
 
-/* =====================================================================
-   MAIN EXTRACT
-   ===================================================================== */
+/* ============================================================================
+   MAIN EXTRACT (per PDF, returns row)
+   ============================================================================ */
 function extractFields(text, filename){
   var found = {};
   function set(k,v){ found[k] = ((v||"") + "").trim(); }
@@ -856,30 +1085,34 @@ function extractFields(text, filename){
 
   set("One actual sample PDF", filename);
 
-  debugBlocksEl.textContent =
-    "===== GSTIN LABELS =====\n" +
-    labels.map(function(l,i){
-      return (i+1) + ". [" + l.section + "] value=[" + (l.value || "(blank)") + "]";
-    }).join("\n") +
-    "\n\n===== RESOLVED =====\n" +
-    "Buyer GSTIN:  '" + resolved.buyerGstin + "'\n" +
-    "Seller GSTIN: '" + resolved.sellerGstin + "'\n\n" +
-    "===== TABLE ROW =====\n" + JSON.stringify(row);
-
   applyLearned(found);
   var finalRow = HEADERS.map(function(h){ return found[h] || ""; });
-  return { row: finalRow, found: found, rawText: text };
+  return { row: finalRow, found: found, debug: {
+    gstinLabels: labels,
+    resolved: resolved,
+    tableRow: row
+  }};
 }
 
-/* ========== Extract button ========== */
-document.getElementById('extractBtn').addEventListener('click', async function(){
-  var files = pdfInput.files;
-  if(!files || files.length === 0){ alert("Please select at least one PDF first."); return; }
-  statusTag.textContent = "Extracting…";
-  pendingRows = [];
-  reviewArea.innerHTML = "";
-  log('Extracting ' + files.length + ' PDF(s)…');
+/* ============================================================================
+   YIELD HELPER — let UI breathe
+   ============================================================================ */
+function yieldToUI(){
+  return new Promise(function(resolve){ setTimeout(resolve, 0); });
+}
 
+/* ============================================================================
+   EXTRACT ALL — main loop
+   ============================================================================ */
+extractBtn.addEventListener('click', async function(){
+  if(isExtracting) return;
+  isExtracting = true;
+  cancelRequested = false;
+  extractBtn.disabled = true;
+  cancelBtn.disabled = false;
+  progressBox.style.display = "block";
+
+  // Ensure workbook exists
   if(!workbook){
     workbook = XLSX.utils.book_new();
     worksheet = aoaToSheet([HEADERS]);
@@ -887,69 +1120,191 @@ document.getElementById('extractBtn').addEventListener('click', async function()
   }
   rebuildKnownFilenames();
 
-  for(var i=0;i<files.length;i++){
-    var f = files[i];
+  var queued = await dbGetAll(STORE_QUEUE);
+  if(queued.length === 0){
+    log('Queue is empty. Add PDFs first.');
+    isExtracting = false;
+    extractBtn.disabled = false;
+    cancelBtn.disabled = true;
+    progressBox.style.display = "none";
+    return;
+  }
+
+  log('Starting extraction of ' + queued.length + ' file(s)…');
+  statusTag.textContent = "Extracting…";
+
+  var startTime = Date.now();
+  var done = 0;
+  var errors = 0;
+
+  for(var i=0;i<queued.length;i++){
+    if(cancelRequested){
+      log('⏹ Cancelled at ' + done + ' / ' + queued.length);
+      break;
+    }
+    var item = queued[i];
+    progCurrent.textContent = item.filename;
+
     try{
-      var text = await readPdfText(f);
-      rawTextEl.textContent = text;
-      var res = extractFields(text, f.name);
-      var isDup = knownFilenames.has(f.name.toLowerCase());
-      if(isDup) log('⚠ Duplicate: ' + f.name);
-      pendingRows.push({
-        filename: f.name,
+      var text = await readPdfTextFromBuffer(item.buffer);
+      rawTextEl.textContent = text.slice(0, 20000);
+
+      var res = extractFields(text, item.filename);
+      var isDup = knownFilenames.has(item.filename.toLowerCase());
+
+      // Validate BEFORE discarding text
+      var validation = validateRow(res.row, text);
+      res.found = res.found || {};
+      res.found["One actual sample PDF"] = item.filename;
+
+      // ★ Discard rawText → store only validation result + row + found
+      await dbAdd(STORE_ROWS, {
+        filename: item.filename,
         row: res.row,
         found: res.found,
         isDuplicate: isDup,
         skip: isDup,
-        rawText: res.rawText
+        validation: validation,
+        debug: res.debug,
+        extractedAt: Date.now()
       });
-      log('Extracted: ' + f.name);
+
+      debugBlocksEl.textContent =
+        "===== GSTIN LABELS =====\n" +
+        (res.debug.gstinLabels || []).map(function(l,idx){
+          return (idx+1) + ". [" + l.section + "] value=[" + (l.value || "(blank)") + "]";
+        }).join("\n") +
+        "\n\n===== RESOLVED =====\n" +
+        "Buyer GSTIN:  '" + res.debug.resolved.buyerGstin + "'\n" +
+        "Seller GSTIN: '" + res.debug.resolved.sellerGstin + "'\n\n" +
+        "===== TABLE ROW =====\n" + JSON.stringify(res.debug.tableRow);
+
+      done++;
+      if(isDup) log('⚠ Duplicate: ' + item.filename);
     }catch(err){
-      log('ERROR ' + f.name + ': ' + err.message);
+      errors++;
+      await dbAdd(STORE_ROWS, {
+        filename: item.filename,
+        row: HEADERS.map(function(){ return ""; }),
+        found: {},
+        isDuplicate: false,
+        skip: true,
+        error: err.message,
+        validation: { issues: ["Extraction error: " + err.message], badge: "bad", warnFields: HEADERS.slice() },
+        extractedAt: Date.now()
+      });
+      log('ERROR ' + item.filename + ': ' + err.message);
+    }
+
+    // Remove from queue
+    await dbDelete(STORE_QUEUE, item.id);
+
+    // Progress
+    var pct = Math.round(((i+1) / queued.length) * 100);
+    progressBar.style.width = pct + '%';
+    progressText.textContent = (i+1) + ' / ' + queued.length + ' (' + pct + '%)';
+    var elapsed = (Date.now() - startTime) / 1000;
+    var rate = elapsed > 0 ? ((i+1) / elapsed) : 0;
+    progRate.textContent = rate.toFixed(2) + ' /s';
+    var remaining = queued.length - (i+1);
+    if(rate > 0){
+      var eta = remaining / rate;
+      progEta.textContent = eta > 60 ? Math.round(eta/60) + ' min' : Math.round(eta) + ' s';
+    }
+
+    // Yield every file to keep UI alive
+    await yieldToUI();
+
+    // Refresh stat counters every 10 files
+    if((i+1) % 10 === 0){
+      jobStats.extracted = await dbCount(STORE_ROWS);
+      statExtracted.textContent = jobStats.extracted;
+      statQueued.textContent = queued.length - (i+1);
     }
   }
-  renderReview();
-  statusTag.textContent = "Review pending";
-  confirmBtn.disabled = pendingRows.length === 0;
-  log('Done. Review ' + pendingRows.length + ' row(s).');
+
+  isExtracting = false;
+  extractBtn.disabled = false;
+  cancelBtn.disabled = true;
+  statusTag.textContent = cancelRequested ? "Cancelled" : "Review pending";
+  confirmBtn.disabled = false;
+
+  // Force refresh of queue/stats/review
+  await refreshQueueView();
+  currentPage = 1;
+  await renderReview();
+  log('Done. ' + done + ' extracted, ' + errors + ' errors.');
 });
 
-/* =====================================================================
-   RENDER REVIEW — v32 with validation badges
-   ===================================================================== */
-function renderReview(){
-  if(!pendingRows.length){ reviewArea.innerHTML = "<em>No data yet.</em>"; return; }
-  reviewArea.innerHTML = "";
+cancelBtn.addEventListener('click', function(){
+  cancelRequested = true;
+  log('Cancel requested…');
+});
 
-  var totalIssues = 0;
-  var badRowsCount = 0;
-  var summaryItems = [];
+/* ============================================================================
+   REVIEW — paginated
+   ============================================================================ */
+async function renderReview(){
+  var allRows = await dbGetAll(STORE_ROWS);
+  if(allRows.length === 0){
+    reviewArea.innerHTML = "<em>No data yet. Queue PDFs and click 'Extract All Queued'.</em>";
+    pageNumEl.textContent = "1";
+    pageTotalEl.textContent = "1";
+    prevPageBtn.disabled = true;
+    nextPageBtn.disabled = true;
+    return;
+  }
 
-  pendingRows.forEach(function(pr, rowIdx){
-    // ★ Run validation
-    var validation = validateRow(pr.row, pr.rawText);
-    pr._validation = validation;
-    totalIssues += validation.issues.length;
-    if(validation.badge !== "ok") badRowsCount++;
-    if(validation.issues.length > 0){
-      summaryItems.push({
-        filename: pr.filename,
-        issues: validation.issues
-      });
-    }
+  // Apply filter
+  var filtered = allRows;
+  if(currentFilter){
+    var f = currentFilter.toLowerCase();
+    filtered = allRows.filter(function(r){
+      var fn = (r.filename || "").toLowerCase();
+      var seller = ((r.row && r.row[HEADERS.indexOf("Seller Company Name")]) || "").toLowerCase();
+      var buyer = ((r.row && r.row[HEADERS.indexOf("Buyer GSTIN")]) || "").toLowerCase();
+      return fn.indexOf(f) !== -1 || seller.indexOf(f) !== -1 || buyer.indexOf(f) !== -1;
+    });
+  }
 
+  var totalPages = Math.max(1, Math.ceil(filtered.length / REVIEW_PAGE_SIZE));
+  if(currentPage > totalPages) currentPage = totalPages;
+  if(currentPage < 1) currentPage = 1;
+
+  pageNumEl.textContent = currentPage;
+  pageTotalEl.textContent = totalPages;
+  prevPageBtn.disabled = currentPage <= 1;
+  nextPageBtn.disabled = currentPage >= totalPages;
+
+  var start = (currentPage - 1) * REVIEW_PAGE_SIZE;
+  var pageRows = filtered.slice(start, start + REVIEW_PAGE_SIZE);
+
+  reviewArea.innerHTML = '';
+
+  // Summary of issues (page-level)
+  var pageIssues = 0;
+  pageRows.forEach(function(r){
+    if(r.validation && r.validation.issues) pageIssues += r.validation.issues.length;
+  });
+  var summaryLine = document.createElement('div');
+  summaryLine.style.cssText = "font-size:12px;color:#666;margin-bottom:8px;";
+  summaryLine.textContent = "Showing " + (start+1) + "–" + Math.min(start+pageRows.length, filtered.length) +
+    " of " + filtered.length + " row(s)" +
+    (currentFilter ? " (filtered from " + allRows.length + ")" : "") +
+    (pageIssues > 0 ? " · " + pageIssues + " issue(s) on this page" : "");
+  reviewArea.appendChild(summaryLine);
+
+  pageRows.forEach(function(pr){
     var card = document.createElement('div');
     card.className = 'review-card' + (pr.isDuplicate ? ' dup' : '');
+    card.dataset.rowId = pr.id;
 
-    var filled = Object.keys(pr.found).filter(function(k){ return pr.found[k] && (pr.found[k]+"").trim(); }).length;
+    var filled = Object.keys(pr.found || {}).filter(function(k){ return pr.found[k] && (pr.found[k]+"").trim(); }).length;
     var dupBadge = pr.isDuplicate ? '<span class="badge badge-dup">⚠ duplicate — will be skipped</span>' : '';
 
-    // ★ Build validation badge HTML
+    var validation = pr.validation || { issues: [], badge: "ok", warnFields: [] };
     var validationBadgeHTML = "";
-    if(validation.badge === "ok"){
-      // No badge for clean rows — keeps UI unchanged for good rows
-      validationBadgeHTML = "";
-    } else {
+    if(validation.badge !== "ok"){
       var cls = validation.badge === "bad" ? "bad" : "warn";
       var icon = validation.badge === "bad" ? "❌" : "⚠";
       var label = validation.issues.length + " issue" + (validation.issues.length === 1 ? "" : "s");
@@ -963,20 +1318,22 @@ function renderReview(){
         '</span>';
     }
 
+    var errBadge = pr.error ? '<span class="badge badge-miss">❌ ' + escapeHtml(pr.error) + '</span>' : '';
+
     card.innerHTML = '<h4>📄 ' + escapeHtml(pr.filename) +
       ' <span class="badge ' + (filled>=10?'badge-ok':'badge-miss') + '">' + filled + '/14 fields</span>' +
-      dupBadge +
+      dupBadge + errBadge +
       validationBadgeHTML +
       ' <label style="font-weight:400;font-size:12px;margin-left:auto;">' +
-      '<input type="checkbox" class="skipCheck" data-idx="' + rowIdx + '" ' + (pr.skip?'checked':'') + '/> Skip' +
+      '<input type="checkbox" class="skipCheck" ' + (pr.skip?'checked':'') + '/> Skip' +
       '</label></h4>';
 
     var grid = document.createElement('div');
     grid.className = 'grid';
+
     HEADERS.forEach(function(h,i){
       var lab = document.createElement('label');
       lab.textContent = h;
-      // ★ Add red underline class if this field has issues
       if(validation.warnFields.indexOf(h) !== -1){
         lab.className = 'field-warn';
         lab.title = 'This field has a validation issue';
@@ -984,18 +1341,16 @@ function renderReview(){
       var inp = document.createElement('input');
       inp.type = 'text';
       inp.value = pr.row[i] || "";
-      inp.dataset.rowIdx = rowIdx;
-      inp.dataset.colIdx = i;
-      inp.addEventListener('input', function(e){
-        var ri = +e.target.dataset.rowIdx, ci = +e.target.dataset.colIdx;
-        pendingRows[ri].row[ci] = e.target.value;
-        pendingRows[ri].found[HEADERS[ci]] = e.target.value;
-        // ★ Re-validate on edit
-        var v = validateRow(pendingRows[ri].row, pendingRows[ri].rawText);
-        pendingRows[ri]._validation = v;
-        // Update the badge + label styling inline
-        var badgeEl = card.querySelector('.validation-badge');
-        var oldVal = badgeEl ? badgeEl.outerHTML : '';
+      inp.addEventListener('input', async function(e){
+        pr.row[i] = e.target.value;
+        pr.found[h] = e.target.value;
+        // Re-validate WITHOUT rawText (fast path) — stored validation already used rawText
+        var v = validateRow(pr.row, null);
+        pr.validation = v;
+        await dbPut(STORE_ROWS, pr);
+        // Update badge + label styling inline
+        var h4 = card.querySelector('h4');
+        var oldBadge = h4.querySelector('.validation-badge');
         var newVal = '';
         if(v.badge !== "ok"){
           var cls2 = v.badge === "bad" ? "bad" : "warn";
@@ -1009,10 +1364,8 @@ function renderReview(){
                     '<span class="tooltip-text"><strong>Issues found:</strong><ul>' + itemsHTML2 + '</ul></span>' +
                    '</span>';
         }
-        var h4 = card.querySelector('h4');
-        if(badgeEl){ badgeEl.outerHTML = newVal || ''; }
+        if(oldBadge){ oldBadge.outerHTML = newVal || ''; }
         else if(newVal && h4){ h4.insertAdjacentHTML('beforeend', ' ' + newVal); }
-        // Update field label underline
         var lbl = grid.children[i * 3];
         if(lbl){
           lbl.className = v.warnFields.indexOf(h) !== -1 ? 'field-warn' : '';
@@ -1023,33 +1376,42 @@ function renderReview(){
       lb.className = 'tiny warn';
       lb.textContent = '🧠';
       lb.title = 'Remember this seller';
-      lb.addEventListener('click', function(){ learnRow(rowIdx); });
+      lb.addEventListener('click', function(){ learnRowById(pr.id); });
       grid.appendChild(lab);
       grid.appendChild(inp);
       grid.appendChild(lb);
     });
     card.appendChild(grid);
+
     var skipCheck = card.querySelector('.skipCheck');
     if(skipCheck){
-      skipCheck.addEventListener('change', function(e){
-        pendingRows[+e.target.dataset.idx].skip = e.target.checked;
+      skipCheck.addEventListener('change', async function(e){
+        pr.skip = e.target.checked;
+        await dbPut(STORE_ROWS, pr);
       });
     }
+
     reviewArea.appendChild(card);
   });
 
-  // ★ Add summary panel at the bottom (only if there are issues)
-  if(summaryItems.length > 0){
+  // Full summary (all rows, not just page) — collapsible
+  var allIssues = allRows.reduce(function(acc, r){
+    if(r.validation && r.validation.issues && r.validation.issues.length) acc.push(r);
+    return acc;
+  }, []);
+  if(allIssues.length > 0){
     var summaryDiv = document.createElement('div');
-    var isBad = badRowsCount >= 3 || totalIssues >= 10;
+    var badRowsCount = allIssues.filter(function(r){ return r.validation.badge === "bad"; }).length;
+    var isBad = badRowsCount >= 3;
     summaryDiv.className = 'validation-summary' + (isBad ? ' bad' : '');
     summaryDiv.innerHTML =
-      '<h5>⚠ Validation summary — ' + summaryItems.length + ' file(s) with issues (click to expand)</h5>' +
+      '<h5>⚠ Validation summary — ' + allIssues.length + ' row(s) with issues (click to expand)</h5>' +
       '<div class="validation-summary-detail">' +
-        summaryItems.map(function(item){
+        allIssues.slice(0, 100).map(function(item){
           return '<strong>' + escapeHtml(item.filename) + '</strong>' +
-                 '<ul>' + item.issues.map(function(s){ return '<li>' + escapeHtml(s) + '</li>'; }).join('') + '</ul>';
+                 '<ul>' + item.validation.issues.slice(0, 20).map(function(s){ return '<li>' + escapeHtml(s) + '</li>'; }).join('') + '</ul>';
         }).join("") +
+        (allIssues.length > 100 ? '<i>… and ' + (allIssues.length - 100) + ' more</i>' : '') +
       '</div>';
     summaryDiv.addEventListener('click', function(){
       summaryDiv.classList.toggle('expanded');
@@ -1058,19 +1420,39 @@ function renderReview(){
   }
 }
 
-/* ★ HTML escape helper for safe injection */
-function escapeHtml(s){
-  return (s + "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
+/* ============================================================================
+   PAGER EVENTS
+   ============================================================================ */
+prevPageBtn.addEventListener('click', function(){
+  if(currentPage > 1){ currentPage--; renderReview(); }
+});
+nextPageBtn.addEventListener('click', function(){
+  currentPage++;
+  renderReview();
+});
+pageJumpBtn.addEventListener('click', function(){
+  var n = parseInt(pageJump.value, 10);
+  if(!isNaN(n) && n > 0){ currentPage = n; renderReview(); }
+});
+filterBox.addEventListener('input', function(){
+  currentFilter = filterBox.value.trim();
+  currentPage = 1;
+  renderReview();
+});
+filterClearBtn.addEventListener('click', function(){
+  filterBox.value = "";
+  currentFilter = "";
+  currentPage = 1;
+  renderReview();
+});
 
-function learnRow(rowIdx){
-  var pr = pendingRows[rowIdx]; if(!pr) return;
-  var key = learnedKey(pr.found);
+/* ============================================================================
+   LEARNED
+   ============================================================================ */
+async function learnRowById(id){
+  var pr = await dbGet(STORE_ROWS, id);
+  if(!pr) return;
+  var key = learnedKey(pr.found || {});
   if(!key){ alert("Fill Seller GSTIN or Seller Company Name first."); return; }
   var store = loadLearned();
   var snap = {};
@@ -1090,27 +1472,48 @@ document.getElementById('learnedBtn').addEventListener('click', function(){
   if(c && s[c]){ delete s[c]; saveLearned(s); alert('Deleted: ' + c); }
 });
 
-confirmBtn.addEventListener('click', function(){
-  if(!worksheet || !pendingRows.length) return;
+/* ============================================================================
+   CONFIRM & APPEND — streaming from IndexedDB
+   ============================================================================ */
+confirmBtn.addEventListener('click', async function(){
+  if(!worksheet) {
+    alert("No master sheet loaded. Load one or extract first.");
+    return;
+  }
+  statusTag.textContent = "Appending…";
+  log('Appending reviewed rows to master…');
+
+  var allRows = await dbGetAll(STORE_ROWS);
   var aoa = sheetToAOA(worksheet);
   if(!aoa.length || !aoa[0] || !aoa[0].length) aoa[0] = HEADERS;
+
   var appended = 0, skipped = 0;
-  pendingRows.forEach(function(pr){
-    if(pr.skip){ skipped++; return; }
-    if(pr.row.every(function(x){ return !(x+"").trim(); })){ skipped++; return; }
+  for(var i=0;i<allRows.length;i++){
+    var pr = allRows[i];
+    if(pr.skip){ skipped++; continue; }
+    if(!pr.row || pr.row.every(function(x){ return !(x+"").trim(); })){ skipped++; continue; }
     aoa.push(pr.row);
     appended++;
     knownFilenames.add(((pr.row[HEADERS.indexOf("One actual sample PDF")]||"")+"").toLowerCase());
-  });
+    if((i+1) % 200 === 0) await yieldToUI();
+  }
+
   worksheet = aoaToSheet(aoa);
   workbook.Sheets[workbook.SheetNames[0]] = worksheet;
   renderPreviewFromSheet();
   statusTag.textContent = 'Appended ' + appended + ', skipped ' + skipped;
   confirmBtn.disabled = true;
   downloadBtn.disabled = false;
-  log('Appended ' + appended + ' row(s), skipped ' + skipped + '.');
+
+  // Clear rows from IndexedDB after append to free space
+  await dbClear(STORE_ROWS);
+  await refreshQueueView();
+  log('Appended ' + appended + ' row(s), skipped ' + skipped + '. Rows cleared from job store.');
 });
 
+/* ============================================================================
+   DOWNLOAD
+   ============================================================================ */
 downloadBtn.addEventListener('click', function(){
   if(!workbook) return;
   var wbout = XLSX.write(workbook, {bookType:'xlsx', type:'array'});
@@ -1123,18 +1526,92 @@ downloadBtn.addEventListener('click', function(){
   log('Downloaded GeM_Master_updated.xlsx');
 });
 
-document.getElementById('clearBtn').addEventListener('click', function(){
-  pendingRows = [];
-  reviewArea.innerHTML = '<em>No data yet. Click "Extract All".</em>';
+/* ============================================================================
+   RESET
+   ============================================================================ */
+document.getElementById('clearBtn').addEventListener('click', async function(){
+  if(!confirm("This clears the queue, extracted rows, and loaded master. Continue?")) return;
+  await dbClear(STORE_QUEUE);
+  await dbClear(STORE_ROWS);
+  workbook = null; worksheet = null;
+  knownFilenames = new Set();
+  currentPage = 1; currentFilter = "";
+  filterBox.value = "";
+  reviewArea.innerHTML = '<em>No data yet. Queue PDFs and click "Extract All Queued".</em>';
+  previewBody.innerHTML = "";
+  masterRows.textContent = "0";
+  masterStatus.textContent = "none";
   downloadBtn.disabled = true;
   confirmBtn.disabled = true;
-  statusTag.textContent = "Idle";
+  progressBox.style.display = "none";
+  progressBar.style.width = "0%";
+  progressText.textContent = "0 / 0";
   pdfInput.value = "";
-  queueList.textContent = "No files selected.";
-  log('Reset.');
+  queueList.textContent = "No files queued.";
+  statQueued.textContent = "0";
+  statExtracted.textContent = "0";
+  statSkipped.textContent = "0";
+  statErrors.textContent = "0";
+  statusTag.textContent = "Idle";
+  log('Reset. All job data cleared.');
 });
 
-log('Ready. Load master (optional), select PDFs, click Extract All.');
+/* ============================================================================
+   ESCAPE HELPER
+   ============================================================================ */
+function escapeHtml(s){
+  return (s + "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+/* ============================================================================
+   RESUME DETECTION ON LOAD
+   ============================================================================ */
+async function checkResume(){
+  try{
+    var qCount = await dbCount(STORE_QUEUE);
+    var rCount = await dbCount(STORE_ROWS);
+    if(qCount > 0 || rCount > 0){
+      resumeBanner.classList.add('visible');
+      resumeStats.textContent = qCount + ' file(s) still queued, ' + rCount + ' row(s) already extracted.';
+      log('Previous job detected: ' + qCount + ' queued, ' + rCount + ' extracted.');
+    }
+  }catch(e){
+    log('Resume check failed: ' + e.message);
+  }
+}
+
+resumeBtn.addEventListener('click', async function(){
+  resumeBanner.classList.remove('visible');
+  await refreshQueueView();
+  currentPage = 1;
+  await renderReview();
+  if(await dbCount(STORE_ROWS) > 0) confirmBtn.disabled = false;
+  statusTag.textContent = "Job restored";
+  log('Job restored from IndexedDB.');
+});
+
+discardBtn.addEventListener('click', async function(){
+  if(!confirm("Discard all queued files and extracted rows?")) return;
+  await dbClear(STORE_QUEUE);
+  await dbClear(STORE_ROWS);
+  resumeBanner.classList.remove('visible');
+  await refreshQueueView();
+  log('Previous job discarded.');
+});
+
+/* ============================================================================
+   INIT
+   ============================================================================ */
+(async function init(){
+  await checkResume();
+  await refreshQueueView();
+  log('Ready. Load master (optional), add PDFs (any batch size), click Extract All Queued.');
+})();
 </script>
 </body>
 </html>
